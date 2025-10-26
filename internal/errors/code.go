@@ -32,6 +32,10 @@ const (
 	ErrCodeNonceQueryFailed      ErrorCode = "NONCE_QUERY_FAILED"
 	ErrCodeReceiptQueryFailed    ErrorCode = "RECEIPT_QUERY_FAILED"
 
+	// Contract Domain Error Codes
+	ErrCodeContractCodeRequired  ErrorCode = "CONTRACT_CODE_REQUIRED"
+	ErrCodeContractCompileFailed ErrorCode = "CONTRACT_COMPILE_FAILED"
+
 	// General Error Codes
 	ErrCodeUnknown ErrorCode = "UNKNOWN"
 )

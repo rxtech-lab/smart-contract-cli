@@ -92,3 +92,15 @@ func NewTransportError(code ErrorCode, message string) *CustomError {
 func WrapTransportError(err error, code ErrorCode, message string) *CustomError {
 	return Wrap(err, code, message)
 }
+
+// Contract Domain Error Constructors
+
+// NewContractError creates a new contract-related error
+func NewContractError(code ErrorCode, message string) *CustomError {
+	return New(code, message)
+}
+
+// WrapContractError wraps an error with a contract error code
+func WrapContractError(err error, code ErrorCode, message string) *CustomError {
+	return Wrap(err, code, message)
+}
