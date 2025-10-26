@@ -72,3 +72,15 @@ func (a *ABI) Elements() ABIArray {
 func (a *ABI) SetElements(elements ABIArray) {
 	a.elements = elements
 }
+
+func (a *ABIElement) IsWritable() bool {
+	return a.StateMutability == "nonpayable" || a.StateMutability == "payable"
+}
+
+func (a *ABIElement) IsReadable() bool {
+	return a.StateMutability == "view" || a.StateMutability == "pure"
+}
+
+func (a *ABIElement) IsPayable() bool {
+	return a.StateMutability == "payable"
+}

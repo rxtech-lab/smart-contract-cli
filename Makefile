@@ -15,3 +15,7 @@ test: e2e-network
 e2e-test-stop:
 	@echo "Stopping Anvil network..."
 	pkill -f "anvil" || true
+
+fmt:
+	@echo "Formatting code..."
+	@go fmt ./...
