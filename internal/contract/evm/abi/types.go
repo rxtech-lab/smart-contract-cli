@@ -2,6 +2,16 @@ package abi
 
 import "encoding/json"
 
+// StateMutability represents the state mutability of a function
+type StateMutability string
+
+const (
+	StateMutabilityPure       StateMutability = "pure"
+	StateMutabilityView       StateMutability = "view"
+	StateMutabilityNonPayable StateMutability = "nonpayable"
+	StateMutabilityPayable    StateMutability = "payable"
+)
+
 // ABIElement represents a single element in an ABI array
 type ABIElement struct {
 	Type            string     `json:"type"`
@@ -73,14 +83,32 @@ func (a *ABI) SetElements(elements ABIArray) {
 	a.elements = elements
 }
 
+// GetStateMutability returns the state mutability as an enum
+func (a *ABIElement) GetStateMutability() StateMutability {
+	return StateMutability(a.StateMutability)
+}
+
+// IsReadOnly returns true if the function is view or pure
+func (a *ABIElement) IsReadOnly() bool {
+	sm := a.GetStateMutability()
+	return sm == StateMutabilityPure || sm == StateMutabilityView
+}
+
+// IsWriteOperation returns true if the function modifies state
+func (a *ABIElement) IsWriteOperation() bool {
+	return !a.IsReadOnly()
+}
+
 func (a *ABIElement) IsWritable() bool {
-	return a.StateMutability == "nonpayable" || a.StateMutability == "payable"
+	sm := a.GetStateMutability()
+	return sm == StateMutabilityNonPayable || sm == StateMutabilityPayable
 }
 
 func (a *ABIElement) IsReadable() bool {
-	return a.StateMutability == "view" || a.StateMutability == "pure"
+	sm := a.GetStateMutability()
+	return sm == StateMutabilityView || sm == StateMutabilityPure
 }
 
 func (a *ABIElement) IsPayable() bool {
-	return a.StateMutability == "payable"
+	return a.GetStateMutability() == StateMutabilityPayable
 }

@@ -10,6 +10,8 @@ const (
 	ErrCodeABIMarshalFailed    ErrorCode = "ABI_MARSHAL_FAILED"
 	ErrCodeABIParseFailed      ErrorCode = "ABI_PARSE_FAILED"
 	ErrCodeABIPackFailed       ErrorCode = "ABI_PACK_FAILED"
+	ErrCodeABIUnpackFailed     ErrorCode = "ABI_UNPACK_FAILED"
+	ErrCodeMethodNotFound      ErrorCode = "METHOD_NOT_FOUND"
 
 	// Signer Domain Error Codes
 	ErrCodeInvalidPrivateKey      ErrorCode = "INVALID_PRIVATE_KEY"
