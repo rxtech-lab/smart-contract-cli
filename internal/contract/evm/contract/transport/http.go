@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -16,12 +17,13 @@ import (
 	"github.com/rxtech-lab/smart-contract-cli/internal/errors"
 )
 
-type HttpTransport struct {
+type HTTPTransport struct {
 	Endpoint string
 	client   *ethclient.Client
+	timeout  time.Duration
 }
 
-func NewHttpTransport(endpoint string) (Transport, error) {
+func NewHTTPTransport(endpoint string, timeout time.Duration) (Transport, error) {
 	if endpoint == "" {
 		return nil, errors.NewTransportError(errors.ErrCodeEndpointRequired, "endpoint is required")
 	}
@@ -39,13 +41,18 @@ func NewHttpTransport(endpoint string) (Transport, error) {
 		return nil, errors.WrapTransportError(err, errors.ErrCodeConnectionFailed, "failed to connect to endpoint")
 	}
 
-	return &HttpTransport{
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
+	return &HTTPTransport{
 		Endpoint: endpoint,
 		client:   client,
+		timeout:  timeout,
 	}, nil
 }
 
-// convertToEthereumABI converts custom ABI to go-ethereum's ABI
+// convertToEthereumABI converts custom ABI to go-ethereum's ABI.
 func convertToEthereumABI(customABI customabi.ABI) (abi.ABI, error) {
 	// Marshal the custom ABI back to JSON
 	abiJSON, err := customABI.MarshalJSON()
@@ -63,7 +70,7 @@ func convertToEthereumABI(customABI customabi.ABI) (abi.ABI, error) {
 }
 
 // CallContract implements Transport.
-func (h *HttpTransport) CallContract(contractAddress common.Address, customABI customabi.ABI, functionName string, args ...any) (result []byte, err error) {
+func (h *HTTPTransport) CallContract(contractAddress common.Address, customABI customabi.ABI, functionName string, args ...any) (result []byte, err error) {
 	// Convert custom ABI to go-ethereum ABI
 	ethABI, err := convertToEthereumABI(customABI)
 	if err != nil {
@@ -93,7 +100,7 @@ func (h *HttpTransport) CallContract(contractAddress common.Address, customABI c
 }
 
 // EstimateGas implements Transport.
-func (h *HttpTransport) EstimateGas(tx *types.Transaction) (gas uint64, err error) {
+func (h *HTTPTransport) EstimateGas(tx *types.Transaction) (gas uint64, err error) {
 	ctx := context.Background()
 
 	// Estimate gas for the transaction
@@ -117,7 +124,7 @@ func (h *HttpTransport) EstimateGas(tx *types.Transaction) (gas uint64, err erro
 }
 
 // GetBalance implements Transport.
-func (h *HttpTransport) GetBalance(address common.Address) (balance *big.Int, err error) {
+func (h *HTTPTransport) GetBalance(address common.Address) (balance *big.Int, err error) {
 	ctx := context.Background()
 
 	balance, err = h.client.BalanceAt(ctx, address, nil)
@@ -129,7 +136,7 @@ func (h *HttpTransport) GetBalance(address common.Address) (balance *big.Int, er
 }
 
 // GetTransactionCount implements Transport.
-func (h *HttpTransport) GetTransactionCount(address common.Address) (nonce uint64, err error) {
+func (h *HTTPTransport) GetTransactionCount(address common.Address) (nonce uint64, err error) {
 	ctx := context.Background()
 
 	nonce, err = h.client.PendingNonceAt(ctx, address)
@@ -141,7 +148,7 @@ func (h *HttpTransport) GetTransactionCount(address common.Address) (nonce uint6
 }
 
 // SendTransaction implements Transport.
-func (h *HttpTransport) SendTransaction(tx *types.Transaction) (txHash common.Hash, err error) {
+func (h *HTTPTransport) SendTransaction(tx *types.Transaction) (txHash common.Hash, err error) {
 	ctx := context.Background()
 
 	err = h.client.SendTransaction(ctx, tx)
@@ -153,14 +160,14 @@ func (h *HttpTransport) SendTransaction(tx *types.Transaction) (txHash common.Ha
 }
 
 // WaitForTransactionReceipt implements Transport.
-func (h *HttpTransport) WaitForTransactionReceipt(txHash common.Hash) (receipt *types.Receipt, err error) {
+func (h *HTTPTransport) WaitForTransactionReceipt(txHash common.Hash) (receipt *types.Receipt, err error) {
 	ctx := context.Background()
 
 	// Poll for the transaction receipt
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	timeout := time.After(5 * time.Minute)
+	timeout := time.After(h.timeout)
 
 	for {
 		select {
@@ -171,11 +178,24 @@ func (h *HttpTransport) WaitForTransactionReceipt(txHash common.Hash) (receipt *
 			if err == nil {
 				return receipt, nil
 			}
-			// If error is not "not found", return it
-			if err != ethereum.NotFound {
-				return nil, errors.WrapTransportError(err, errors.ErrCodeReceiptQueryFailed, "failed to query transaction receipt")
+			// If error is "not found", continue polling
+			if goerrors.Is(err, ethereum.NotFound) {
+				continue
 			}
-			// Otherwise, continue polling
+			// For any other error, return it
+			return nil, errors.WrapTransportError(err, errors.ErrCodeReceiptQueryFailed, "failed to query transaction receipt")
 		}
 	}
+}
+
+// GetChainID implements Transport.
+func (h *HTTPTransport) GetChainID() (chainID *big.Int, err error) {
+	ctx := context.Background()
+
+	chainID, err = h.client.ChainID(ctx)
+	if err != nil {
+		return nil, errors.WrapTransportError(err, errors.ErrCodeChainIDQueryFailed, "failed to query chain ID")
+	}
+
+	return chainID, nil
 }

@@ -3,6 +3,7 @@ package signer
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -11,23 +12,23 @@ import (
 )
 
 const (
-	// Anvil default test account
+	// Anvil default test account.
 	testPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	testAddress    = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-	// Anvil endpoint for E2E tests
+	// Anvil endpoint for E2E tests.
 	testEndpoint = "http://localhost:8545"
-	// Anvil chain ID
+	// Anvil chain ID.
 	testChainID = 31337
 )
 
-// PrivateKeySignerTestSuite defines the test suite for PrivateKeySigner
+// PrivateKeySignerTestSuite defines the test suite for PrivateKeySigner.
 type PrivateKeySignerTestSuite struct {
 	suite.Suite
 	signer      Signer
 	testAddress common.Address
 }
 
-// SetupSuite runs once before all tests in the suite
+// SetupSuite runs once before all tests in the suite.
 func (suite *PrivateKeySignerTestSuite) SetupSuite() {
 	// Initialize signer with test private key
 	signer, err := NewPrivateKeySigner(testPrivateKey)
@@ -38,7 +39,7 @@ func (suite *PrivateKeySignerTestSuite) SetupSuite() {
 	suite.testAddress = common.HexToAddress(testAddress)
 }
 
-// TestNewPrivateKeySigner tests signer creation
+// TestNewPrivateKeySigner tests signer creation.
 func (suite *PrivateKeySignerTestSuite) TestNewPrivateKeySigner() {
 	tests := []struct {
 		name        string
@@ -95,7 +96,7 @@ func (suite *PrivateKeySignerTestSuite) TestNewPrivateKeySigner() {
 	}
 }
 
-// TestGetAddress tests address derivation
+// TestGetAddress tests address derivation.
 func (suite *PrivateKeySignerTestSuite) TestGetAddress() {
 	// Get address from signer
 	address := suite.signer.(*PrivateKeySigner).GetAddress()
@@ -105,7 +106,7 @@ func (suite *PrivateKeySignerTestSuite) TestGetAddress() {
 	suite.T().Logf("Derived address: %s", address.Hex())
 }
 
-// TestSignMessageString tests message signing
+// TestSignMessageString tests message signing.
 func (suite *PrivateKeySignerTestSuite) TestSignMessageString() {
 	tests := []struct {
 		name    string
@@ -317,7 +318,7 @@ func (suite *PrivateKeySignerTestSuite) TestVerifyMessageWithMetaMaskFormat() {
 	suite.Equal(suite.testAddress, recoveredAddr, "recovered address should match")
 }
 
-// TestSignTransaction tests transaction signing
+// TestSignTransaction tests transaction signing.
 func (suite *PrivateKeySignerTestSuite) TestSignTransaction() {
 	// Create a simple transaction
 	nonce := uint64(0)
@@ -360,7 +361,7 @@ func (suite *PrivateKeySignerTestSuite) TestSignTransaction() {
 // TestSignTransactionAndSendToE2E is an E2E integration test
 func (suite *PrivateKeySignerTestSuite) TestSignTransactionAndSendToE2E() {
 	// Create transport
-	transport, err := transport.NewHttpTransport(testEndpoint)
+	transport, err := transport.NewHTTPTransport(testEndpoint, 30*time.Second)
 	if err != nil {
 		suite.T().Skipf("Anvil network not running: %v (run 'make e2e-network' first)", err)
 		return

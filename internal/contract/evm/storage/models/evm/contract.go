@@ -31,12 +31,12 @@ type EVMContract struct {
 	Endpoint   *EVMEndpoint `json:"endpoint,omitempty" gorm:"foreignKey:EndpointId;references:ID"`
 }
 
-// TableName specifies the table name for EVMContract
+// TableName specifies the table name for EVMContract.
 func (EVMContract) TableName() string {
 	return "evm_contracts"
 }
 
-// IsDeployable returns true if the contract is deployable
+// IsDeployable returns true if the contract is deployable.
 func (c *EVMContract) IsDeployable() bool {
 	return c.Status == DeploymentStatusPending && c.Bytecode != nil
 }

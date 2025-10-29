@@ -11,7 +11,7 @@ type EVMEndpoint struct {
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
-// TableName specifies the table name for EVMEndpoint
+// TableName specifies the table name for EVMEndpoint.
 func (EVMEndpoint) TableName() string {
 	return "evm_endpoints"
 }

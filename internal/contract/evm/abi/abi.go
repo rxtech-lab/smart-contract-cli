@@ -15,7 +15,7 @@ type AbiObject struct {
 }
 
 // ParseAbi parse an abi string which can be in array or object format or
-// Abi object format and returns an AbiArray
+// Abi object format and returns an AbiArray.
 func ParseAbi(abi string) (AbiArray, error) {
 	var abiArray AbiArray
 	var abiObject AbiObject

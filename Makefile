@@ -1,4 +1,4 @@
-.PHONY: e2e-network e2e-test e2e-test-stop
+.PHONY: e2e-network e2e-test e2e-test-stop lint
 
 e2e-network:
 	@echo "Starting Anvil network..."
@@ -19,3 +19,14 @@ e2e-test-stop:
 fmt:
 	@echo "Formatting code..."
 	@go fmt ./...
+
+lint:
+	@echo "Running golangci-lint..."
+	@if command -v golangci-lint > /dev/null 2>&1; then \
+		golangci-lint run ./...; \
+	elif [ -f ~/go/bin/golangci-lint ]; then \
+		~/go/bin/golangci-lint run ./...; \
+	else \
+		echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi

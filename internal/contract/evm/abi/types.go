@@ -1,8 +1,11 @@
 package abi
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
-// StateMutability represents the state mutability of a function
+// StateMutability represents the state mutability of a function.
 type StateMutability string
 
 const (
@@ -12,7 +15,7 @@ const (
 	StateMutabilityPayable    StateMutability = "payable"
 )
 
-// ABIElement represents a single element in an ABI array
+// ABIElement represents a single element in an ABI array.
 type ABIElement struct {
 	Type            string     `json:"type"`
 	Name            string     `json:"name,omitempty"`
@@ -26,7 +29,7 @@ type ABIElement struct {
 	InternalType    string     `json:"internalType,omitempty"`
 }
 
-// ABIParam represents a parameter in a function or event
+// ABIParam represents a parameter in a function or event.
 type ABIParam struct {
 	Name         string     `json:"name,omitempty"`
 	Type         string     `json:"type"`
@@ -35,22 +38,22 @@ type ABIParam struct {
 	InternalType string     `json:"internalType,omitempty"`
 }
 
-// ABIArray represents a standard ABI as an array of elements
+// ABIArray represents a standard ABI as an array of elements.
 type ABIArray []ABIElement
 
-// ABIObject represents an object that contains an ABI field
+// ABIObject represents an object that contains an ABI field.
 type ABIObject struct {
 	ABI      ABIArray       `json:"abi"`
 	Bytecode string         `json:"bytecode,omitempty"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
-// ABI is a wrapper that can handle both ABI array and object formats
+// ABI is a wrapper that can handle both ABI array and object formats.
 type ABI struct {
 	elements ABIArray
 }
 
-// UnmarshalJSON implements custom unmarshaling to handle both formats
+// UnmarshalJSON implements custom unmarshaling to handle both formats.
 func (a *ABI) UnmarshalJSON(data []byte) error {
 	// First, try to unmarshal as an array
 	var arr ABIArray
@@ -62,39 +65,43 @@ func (a *ABI) UnmarshalJSON(data []byte) error {
 	// If that fails, try to unmarshal as an object
 	var obj ABIObject
 	if err := json.Unmarshal(data, &obj); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal ABI: %w", err)
 	}
 	a.elements = obj.ABI
 	return nil
 }
 
-// MarshalJSON implements custom marshaling
+// MarshalJSON implements custom marshaling.
 func (a *ABI) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.elements)
+	data, err := json.Marshal(a.elements)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ABI: %w", err)
+	}
+	return data, nil
 }
 
-// Elements returns the ABI elements
+// Elements returns the ABI elements.
 func (a *ABI) Elements() ABIArray {
 	return a.elements
 }
 
-// SetElements sets the ABI elements
+// SetElements sets the ABI elements.
 func (a *ABI) SetElements(elements ABIArray) {
 	a.elements = elements
 }
 
-// GetStateMutability returns the state mutability as an enum
+// GetStateMutability returns the state mutability as an enum.
 func (a *ABIElement) GetStateMutability() StateMutability {
 	return StateMutability(a.StateMutability)
 }
 
-// IsReadOnly returns true if the function is view or pure
+// IsReadOnly returns true if the function is view or pure.
 func (a *ABIElement) IsReadOnly() bool {
 	sm := a.GetStateMutability()
 	return sm == StateMutabilityPure || sm == StateMutabilityView
 }
 
-// IsWriteOperation returns true if the function modifies state
+// IsWriteOperation returns true if the function modifies state.
 func (a *ABIElement) IsWriteOperation() bool {
 	return !a.IsReadOnly()
 }

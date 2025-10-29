@@ -14,7 +14,7 @@ type EVMConfig struct {
 	UpdatedAt             time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
-// TableName specifies the table name for EVMConfig
+// TableName specifies the table name for EVMConfig.
 func (EVMConfig) TableName() string {
 	return "evm_configs"
 }

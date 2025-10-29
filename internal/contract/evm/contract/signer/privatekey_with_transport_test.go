@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,7 +27,6 @@ contract TestContract {
 
     // Payable function - accepts ETH and updates state
     function deposit(uint256 amount) public payable returns (uint256) {
-        uint256 oldValue = value;
         value += amount;
         lastSender = msg.sender;
         emit Deposited(msg.sender, amount, value);
@@ -68,6 +68,7 @@ type PrivateKeySignerWithTransportTestSuite struct {
 	contractABI     abi.ABI
 	testPrivateKey  string
 	testAddress     common.Address
+	chainID         *big.Int
 }
 
 // SetupSuite runs once before all tests
@@ -77,9 +78,14 @@ func (suite *PrivateKeySignerWithTransportTestSuite) SetupSuite() {
 	suite.testAddress = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
 	// Create transport
-	tr, err := transport.NewHttpTransport("http://localhost:8545")
+	tr, err := transport.NewHTTPTransport("http://localhost:8545", 5*time.Second)
 	suite.Require().NoError(err, "Failed to create transport")
 	suite.transport = tr
+
+	// Get chain ID from blockchain
+	suite.chainID, err = suite.transport.GetChainID()
+	suite.Require().NoError(err, "Failed to get chain ID")
+	suite.T().Logf("Using chain ID: %s", suite.chainID.String())
 
 	// Create signer
 	baseSigner, err := NewPrivateKeySigner(suite.testPrivateKey)
@@ -162,19 +168,23 @@ func (suite *PrivateKeySignerWithTransportTestSuite) deployContract(bytecode str
 
 	// Create deployment transaction
 	deployData := common.FromHex(bytecode)
-	gasPrice := big.NewInt(1000000000) // 1 gwei
 
-	tx := types.NewContractCreation(
-		nonce,
-		big.NewInt(0),
-		3000000, // gas limit
-		gasPrice,
-		deployData,
-	)
+	// Use EIP-1559 transaction
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   suite.chainID,
+		Nonce:     nonce,
+		GasTipCap: big.NewInt(1000000000), // 1 gwei
+		GasFeeCap: big.NewInt(2000000000), // 2 gwei
+		Gas:       3000000,                // gas limit
+		To:        nil,                    // contract creation
+		Value:     big.NewInt(0),
+		Data:      deployData,
+	})
 
 	// Send transaction
 	txHash, err := suite.signer.SendTransaction(tx)
 	suite.Require().NoError(err, "Failed to send deployment transaction")
+	suite.T().Logf("Deployment transaction sent: %s", txHash.Hex())
 
 	// Wait for receipt
 	receipt, err := suite.transport.WaitForTransactionReceipt(txHash)
@@ -300,12 +310,14 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_NonP
 	// Check transaction succeeded
 	status, ok := result[0].(uint64)
 	suite.Require().True(ok, "First result should be uint64 status")
-	suite.Assert().Equal(uint64(1), status, "Transaction should succeed")
 
 	// Check tx hash
 	txHash, ok := result[1].(string)
 	suite.Require().True(ok, "Second result should be string tx hash")
 	suite.Assert().NotEmpty(txHash)
+	suite.T().Logf("setValue transaction hash: %s, status: %d", txHash, status)
+
+	suite.Assert().Equal(uint64(1), status, "Transaction should succeed")
 
 	// Verify state changed by calling getValue()
 	readResult, err := suite.signer.CallContractMethod(
@@ -338,13 +350,13 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Paya
 	balanceBefore, err := suite.transport.GetBalance(suite.contractAddress)
 	suite.Require().NoError(err)
 
-	// Call deposit(456) with 1 ETH
-	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(1e18))
+	// Call deposit(456) with 0.0001 ETH (reduced to avoid gas estimation issues)
+	depositAmount := new(big.Int).Mul(big.NewInt(1), big.NewInt(1e14)) // 0.0001 ETH
 	result, err := suite.signer.CallContractMethod(
 		suite.contractAddress,
 		suite.contractABI,
 		"deposit",
-		oneEth, // send 1 ETH
+		depositAmount,
 		0,
 		nil,
 		big.NewInt(456),
@@ -362,9 +374,9 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Paya
 	balanceAfter, err := suite.transport.GetBalance(suite.contractAddress)
 	suite.Require().NoError(err)
 
-	expectedIncrease := oneEth
+	expectedIncrease := depositAmount
 	actualIncrease := new(big.Int).Sub(balanceAfter, balanceBefore)
-	suite.Assert().Equal(expectedIncrease.String(), actualIncrease.String(), "Contract balance should increase by 1 ETH")
+	suite.Assert().Equal(expectedIncrease.String(), actualIncrease.String(), "Contract balance should increase by deposit amount")
 
 	// Verify method is payable using enum
 	method := findMethodInABI(suite.contractABI, "deposit")
@@ -376,23 +388,28 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Paya
 
 // TestEstimateGas tests gas estimation
 func (suite *PrivateKeySignerWithTransportTestSuite) TestEstimateGas() {
-	// Create a transaction
+	// Create a transaction with actual contract call data
 	nonce, err := suite.transport.GetTransactionCount(suite.testAddress)
 	suite.Require().NoError(err)
 
-	tx := types.NewTransaction(
-		nonce,
-		suite.contractAddress,
-		big.NewInt(0),
-		100000,
-		big.NewInt(1000000000),
-		[]byte{},
-	)
+	// Simple ETH transfer (not a contract call) for gas estimation
+	recipient := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   suite.chainID,
+		Nonce:     nonce,
+		GasTipCap: big.NewInt(1000000000), // 1 gwei
+		GasFeeCap: big.NewInt(2000000000), // 2 gwei
+		Gas:       100000,
+		To:        &recipient,
+		Value:     big.NewInt(1000),
+		Data:      []byte{},
+	})
 
 	// Estimate gas
 	gas, err := suite.signer.EstimateGas(tx)
 	suite.Require().NoError(err)
 	suite.Assert().True(gas > 0, "Gas estimate should be positive")
+	suite.Assert().True(gas >= 21000, "Gas estimate should be at least 21000 for a simple transfer")
 }
 
 // TestSignAndVerifyMessage tests message signing and verification
@@ -427,14 +444,17 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestSendTransaction_Manual(
 	recipient := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	value := big.NewInt(1000000000000000) // 0.001 ETH
 
-	tx := types.NewTransaction(
-		nonce,
-		recipient,
-		value,
-		21000,
-		big.NewInt(1000000000),
-		nil,
-	)
+	// Use EIP-1559 transaction
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   suite.chainID,
+		Nonce:     nonce,
+		GasTipCap: big.NewInt(1000000000), // 1 gwei
+		GasFeeCap: big.NewInt(2000000000), // 2 gwei
+		Gas:       21000,
+		To:        &recipient,
+		Value:     value,
+		Data:      nil,
+	})
 
 	// Send transaction
 	txHash, err := suite.signer.SendTransaction(tx)

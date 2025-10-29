@@ -51,8 +51,8 @@ var testABI = `[
 	}
 ]`
 
-// HttpTransportTestSuite defines the test suite for HTTP transport
-type HttpTransportTestSuite struct {
+// HTTPTransportTestSuite defines the test suite for HTTP transport
+type HTTPTransportTestSuite struct {
 	suite.Suite
 	transport       Transport
 	testABIObj      abi.ABI
@@ -61,7 +61,7 @@ type HttpTransportTestSuite struct {
 }
 
 // SetupSuite runs once before all tests in the suite
-func (suite *HttpTransportTestSuite) SetupSuite() {
+func (suite *HTTPTransportTestSuite) SetupSuite() {
 	// Parse test ABI
 	err := json.Unmarshal([]byte(testABI), &suite.testABIObj)
 	suite.Require().NoError(err, "failed to parse test ABI")
@@ -71,7 +71,7 @@ func (suite *HttpTransportTestSuite) SetupSuite() {
 	suite.contractAddress = common.HexToAddress("0x1234567890123456789012345678901234567890")
 
 	// Initialize transport
-	transport, err := NewHttpTransport(testEndpoint)
+	transport, err := NewHTTPTransport(testEndpoint, 30*time.Second)
 	if err != nil {
 		suite.T().Skipf("Anvil network not running: %v (run 'make e2e-network' first)", err)
 	}
@@ -79,22 +79,22 @@ func (suite *HttpTransportTestSuite) SetupSuite() {
 }
 
 // TearDownSuite runs once after all tests in the suite
-func (suite *HttpTransportTestSuite) TearDownSuite() {
+func (suite *HTTPTransportTestSuite) TearDownSuite() {
 	// Cleanup if needed
 }
 
 // SetupTest runs before each test
-func (suite *HttpTransportTestSuite) SetupTest() {
+func (suite *HTTPTransportTestSuite) SetupTest() {
 	// Per-test setup if needed
 }
 
 // TearDownTest runs after each test
-func (suite *HttpTransportTestSuite) TearDownTest() {
+func (suite *HTTPTransportTestSuite) TearDownTest() {
 	// Per-test cleanup if needed
 }
 
-// TestNewHttpTransport tests transport initialization
-func (suite *HttpTransportTestSuite) TestNewHttpTransport() {
+// TestNewHTTPTransport tests transport initialization
+func (suite *HTTPTransportTestSuite) TestNewHTTPTransport() {
 	tests := []struct {
 		name        string
 		endpoint    string
@@ -121,7 +121,7 @@ func (suite *HttpTransportTestSuite) TestNewHttpTransport() {
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			transport, err := NewHttpTransport(tt.endpoint)
+			transport, err := NewHTTPTransport(tt.endpoint, 30*time.Second)
 
 			if tt.wantErr {
 				suite.Error(err, "expected error but got none")
@@ -142,7 +142,7 @@ func (suite *HttpTransportTestSuite) TestNewHttpTransport() {
 }
 
 // TestGetBalance tests balance retrieval
-func (suite *HttpTransportTestSuite) TestGetBalance() {
+func (suite *HTTPTransportTestSuite) TestGetBalance() {
 	tests := []struct {
 		name          string
 		address       common.Address
@@ -191,7 +191,7 @@ func (suite *HttpTransportTestSuite) TestGetBalance() {
 }
 
 // TestGetTransactionCount tests nonce retrieval
-func (suite *HttpTransportTestSuite) TestGetTransactionCount() {
+func (suite *HTTPTransportTestSuite) TestGetTransactionCount() {
 	tests := []struct {
 		name    string
 		address common.Address
@@ -225,7 +225,7 @@ func (suite *HttpTransportTestSuite) TestGetTransactionCount() {
 }
 
 // TestCallContract tests contract call functionality
-func (suite *HttpTransportTestSuite) TestCallContract() {
+func (suite *HTTPTransportTestSuite) TestCallContract() {
 	suite.Run("call non-existent contract", func() {
 		// Calling a non-existent contract should either return empty data or an error
 		// depending on the RPC implementation
@@ -245,12 +245,12 @@ func (suite *HttpTransportTestSuite) TestCallContract() {
 }
 
 // TestEstimateGas tests gas estimation
-func (suite *HttpTransportTestSuite) TestEstimateGas() {
+func (suite *HTTPTransportTestSuite) TestEstimateGas() {
 	suite.T().Skip("Gas estimation requires a properly signed transaction - skipping in basic e2e test")
 }
 
 // TestSequentialOperations tests multiple operations in sequence
-func (suite *HttpTransportTestSuite) TestSequentialOperations() {
+func (suite *HTTPTransportTestSuite) TestSequentialOperations() {
 	// Get balance
 	balance, err := suite.transport.GetBalance(suite.testAddr)
 	suite.NoError(err, "GetBalance should not return error")
@@ -271,7 +271,7 @@ func (suite *HttpTransportTestSuite) TestSequentialOperations() {
 }
 
 // TestConcurrentOperations tests multiple operations running concurrently
-func (suite *HttpTransportTestSuite) TestConcurrentOperations() {
+func (suite *HTTPTransportTestSuite) TestConcurrentOperations() {
 	done := make(chan error, 2)
 
 	// Get balance concurrently
@@ -299,7 +299,7 @@ func (suite *HttpTransportTestSuite) TestConcurrentOperations() {
 	}
 }
 
-// TestHttpTransportTestSuite runs the test suite
-func TestHttpTransportTestSuite(t *testing.T) {
-	suite.Run(t, new(HttpTransportTestSuite))
+// TestHTTPTransportTestSuite runs the test suite
+func TestHTTPTransportTestSuite(t *testing.T) {
+	suite.Run(t, new(HTTPTransportTestSuite))
 }

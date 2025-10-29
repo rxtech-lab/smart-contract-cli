@@ -2,7 +2,7 @@ package errors
 
 import "fmt"
 
-// CustomError represents a custom error with error code and context
+// CustomError represents a custom error with error code and context.
 type CustomError struct {
 	code    ErrorCode
 	message string
@@ -10,7 +10,7 @@ type CustomError struct {
 	err     error
 }
 
-// Error implements the error interface
+// Error implements the error interface.
 func (e *CustomError) Error() string {
 	if e.details != "" && e.err != nil {
 		return fmt.Sprintf("[%s] %s: %s: %v", e.code, e.message, e.details, e.err)
@@ -24,17 +24,17 @@ func (e *CustomError) Error() string {
 	return fmt.Sprintf("[%s] %s", e.code, e.message)
 }
 
-// Unwrap returns the wrapped error for error chain compatibility
+// Unwrap returns the wrapped error for error chain compatibility.
 func (e *CustomError) Unwrap() error {
 	return e.err
 }
 
-// Code returns the error code
+// Code returns the error code.
 func (e *CustomError) Code() ErrorCode {
 	return e.code
 }
 
-// Is supports errors.Is comparison
+// Is supports errors.Is comparison.
 func (e *CustomError) Is(target error) bool {
 	t, ok := target.(*CustomError)
 	if !ok {
@@ -43,7 +43,7 @@ func (e *CustomError) Is(target error) bool {
 	return e.code == t.code
 }
 
-// New creates a new custom error
+// New creates a new custom error.
 func New(code ErrorCode, message string) *CustomError {
 	return &CustomError{
 		code:    code,

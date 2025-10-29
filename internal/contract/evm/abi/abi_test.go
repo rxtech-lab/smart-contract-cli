@@ -216,7 +216,7 @@ func TestParseAbi(t *testing.T) {
 	}
 }
 
-// TestParseAbi_RealWorldExample tests with a more realistic ERC20 ABI
+// TestParseAbi_RealWorldExample tests with a more realistic ERC20 ABI.
 func TestParseAbi_RealWorldExample(t *testing.T) {
 	erc20ABI := `[
 		{

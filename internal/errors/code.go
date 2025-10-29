@@ -1,10 +1,10 @@
 package errors
 
-// ErrorCode represents a unique identifier for different error types
+// ErrorCode represents a unique identifier for different error types.
 type ErrorCode string
 
 const (
-	// ABI Domain Error Codes
+	// ABI Domain Error Codes.
 	ErrCodeInvalidABIFormat    ErrorCode = "INVALID_ABI_FORMAT"
 	ErrCodeABIConversionFailed ErrorCode = "ABI_CONVERSION_FAILED"
 	ErrCodeABIMarshalFailed    ErrorCode = "ABI_MARSHAL_FAILED"
@@ -13,7 +13,7 @@ const (
 	ErrCodeABIUnpackFailed     ErrorCode = "ABI_UNPACK_FAILED"
 	ErrCodeMethodNotFound      ErrorCode = "METHOD_NOT_FOUND"
 
-	// Signer Domain Error Codes
+	// Signer Domain Error Codes.
 	ErrCodeInvalidPrivateKey      ErrorCode = "INVALID_PRIVATE_KEY"
 	ErrCodeSigningFailed          ErrorCode = "SIGNING_FAILED"
 	ErrCodeTransactionSignFailed  ErrorCode = "TRANSACTION_SIGN_FAILED"
@@ -22,7 +22,7 @@ const (
 	ErrCodeSignatureDecode        ErrorCode = "SIGNATURE_DECODE_FAILED"
 	ErrCodePublicKeyRecovery      ErrorCode = "PUBLIC_KEY_RECOVERY_FAILED"
 
-	// Transport Domain Error Codes
+	// Transport Domain Error Codes.
 	ErrCodeEndpointRequired      ErrorCode = "ENDPOINT_REQUIRED"
 	ErrCodeConnectionFailed      ErrorCode = "CONNECTION_FAILED"
 	ErrCodeRPCCallFailed         ErrorCode = "RPC_CALL_FAILED"
@@ -33,16 +33,17 @@ const (
 	ErrCodeBalanceQueryFailed    ErrorCode = "BALANCE_QUERY_FAILED"
 	ErrCodeNonceQueryFailed      ErrorCode = "NONCE_QUERY_FAILED"
 	ErrCodeReceiptQueryFailed    ErrorCode = "RECEIPT_QUERY_FAILED"
+	ErrCodeChainIDQueryFailed    ErrorCode = "CHAIN_ID_QUERY_FAILED"
 
-	// Contract Domain Error Codes
+	// Contract Domain Error Codes.
 	ErrCodeContractCodeRequired  ErrorCode = "CONTRACT_CODE_REQUIRED"
 	ErrCodeContractCompileFailed ErrorCode = "CONTRACT_COMPILE_FAILED"
 
-	// General Error Codes
+	// General Error Codes.
 	ErrCodeUnknown ErrorCode = "UNKNOWN"
 )
 
-// String returns the string representation of the error code
+// String returns the string representation of the error code.
 func (e ErrorCode) String() string {
 	return string(e)
 }

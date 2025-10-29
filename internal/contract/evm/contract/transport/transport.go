@@ -26,4 +26,7 @@ type Transport interface {
 
 	// GetBalance gets the balance of an address
 	GetBalance(address common.Address) (balance *big.Int, err error)
+
+	// GetChainID gets the chain ID from the blockchain
+	GetChainID() (chainID *big.Int, err error)
 }

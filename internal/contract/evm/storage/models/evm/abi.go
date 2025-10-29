@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/abi"
@@ -16,17 +17,17 @@ type EvmAbi struct {
 	UpdatedAt time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
-// TableName specifies the table name for EvmAbi
+// TableName specifies the table name for EvmAbi.
 func (EvmAbi) TableName() string {
 	return "evm_abis"
 }
 
-// AbiArrayType wraps abi.AbiArray for database serialization
+// AbiArrayType wraps abi.AbiArray for database serialization.
 type AbiArrayType struct {
 	abi.AbiArray
 }
 
-// Scan implements sql.Scanner interface for reading from database
+// Scan implements sql.Scanner interface for reading from database.
 func (a *AbiArrayType) Scan(value any) error {
 	if value == nil {
 		a.AbiArray = nil
@@ -52,7 +53,7 @@ func (a *AbiArrayType) Scan(value any) error {
 	return nil
 }
 
-// Value implements driver.Valuer interface for writing to database
+// Value implements driver.Valuer interface for writing to database.
 func (a AbiArrayType) Value() (driver.Value, error) {
 	if a.AbiArray == nil {
 		return nil, nil
@@ -60,7 +61,7 @@ func (a AbiArrayType) Value() (driver.Value, error) {
 
 	bytes, err := json.Marshal(a.AbiArray)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal ABI array: %w", err)
 	}
 
 	return string(bytes), nil

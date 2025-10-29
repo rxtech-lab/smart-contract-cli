@@ -18,7 +18,7 @@ type PrivateKeySignerWithTransport struct {
 	transport transport.Transport
 }
 
-// WithTransport creates a new PrivateKeySignerWithTransport with the given transport
+// WithTransport creates a new PrivateKeySignerWithTransport with the given transport.
 func (p *PrivateKeySigner) WithTransport(transport transport.Transport) SignerWithTransport {
 	return &PrivateKeySignerWithTransport{
 		PrivateKeySigner: p,
@@ -26,7 +26,7 @@ func (p *PrivateKeySigner) WithTransport(transport transport.Transport) SignerWi
 	}
 }
 
-// Helper function to find method in ABI
+// Helper function to find method in ABI.
 func findMethodInABI(customABI abi.ABI, methodName string) *abi.ABIElement {
 	elements := customABI.Elements()
 	for i := range elements {
@@ -38,7 +38,7 @@ func findMethodInABI(customABI abi.ABI, methodName string) *abi.ABIElement {
 	return nil
 }
 
-// Helper function to convert custom ABI to go-ethereum ABI
+// Helper function to convert custom ABI to go-ethereum ABI.
 func convertToEthereumABI(customABI abi.ABI) (ethabi.ABI, error) {
 	abiJSON, err := customABI.MarshalJSON()
 	if err != nil {
@@ -53,86 +53,121 @@ func convertToEthereumABI(customABI abi.ABI) (ethabi.ABI, error) {
 	return ethABI, nil
 }
 
-// CallContractMethod implements SignerWithTransport.
-func (p *PrivateKeySignerWithTransport) CallContractMethod(contractAddress common.Address, contractABI abi.ABI, methodName string, value *big.Int, gasLimit uint64, gasPrice *big.Int, args ...any) (result []any, err error) {
-	// Find method in ABI
-	method := findMethodInABI(contractABI, methodName)
-	if method == nil {
-		return nil, errors.NewABIError(errors.ErrCodeMethodNotFound, fmt.Sprintf("method %s not found in ABI", methodName))
+// executeReadOnlyCall handles read-only contract method calls.
+func (p *PrivateKeySignerWithTransport) executeReadOnlyCall(contractAddress common.Address, contractABI abi.ABI, method *abi.ABIElement, methodName string, args ...any) ([]any, error) {
+	// Call the contract using transport
+	rawResult, err := p.transport.CallContract(contractAddress, contractABI, methodName, args...)
+	if err != nil {
+		return nil, err
 	}
 
-	// Check if it's a read-only operation using enum
-	if method.IsReadOnly() {
-		// Read operation - use transport.CallContract
-		rawResult, err := p.transport.CallContract(contractAddress, contractABI, methodName, args...)
-		if err != nil {
-			return nil, err
-		}
-
-		// Decode the result
-		ethABI, err := convertToEthereumABI(contractABI)
-		if err != nil {
-			return nil, err
-		}
-
-		// If no outputs, return nil
-		if len(method.Outputs) == 0 {
-			return nil, nil
-		}
-
-		// Unpack the result
-		results := make([]any, len(method.Outputs))
-		err = ethABI.UnpackIntoInterface(&results, methodName, rawResult)
-		if err != nil {
-			return nil, errors.WrapABIError(err, errors.ErrCodeABIUnpackFailed, fmt.Sprintf("failed to unpack result for method %s", methodName))
-		}
-
-		return results, nil
+	// If no outputs, return nil
+	if len(method.Outputs) == 0 {
+		return nil, nil
 	}
 
-	// Write operation - create, sign, and send transaction
+	// Decode the result
+	return p.decodeCallResult(contractABI, methodName, rawResult)
+}
+
+// decodeCallResult unpacks raw contract call result into typed values.
+func (p *PrivateKeySignerWithTransport) decodeCallResult(contractABI abi.ABI, methodName string, rawResult []byte) ([]any, error) {
 	ethABI, err := convertToEthereumABI(contractABI)
 	if err != nil {
 		return nil, err
 	}
 
-	// Pack the function data
+	// Use Unpack which returns []interface{} directly
+	results, err := ethABI.Unpack(methodName, rawResult)
+	if err != nil {
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIUnpackFailed, fmt.Sprintf("failed to unpack result for method %s", methodName))
+	}
+
+	return results, nil
+}
+
+// packFunctionData encodes function call data with arguments.
+func (p *PrivateKeySignerWithTransport) packFunctionData(contractABI abi.ABI, methodName string, args ...any) ([]byte, error) {
+	ethABI, err := convertToEthereumABI(contractABI)
+	if err != nil {
+		return nil, err
+	}
+
 	data, err := ethABI.Pack(methodName, args...)
 	if err != nil {
 		return nil, errors.WrapABIError(err, errors.ErrCodeABIPackFailed, fmt.Sprintf("failed to pack function %s", methodName))
 	}
 
-	// Get nonce
-	signerAddress := p.PrivateKeySigner.GetAddress()
-	nonce, err := p.transport.GetTransactionCount(signerAddress)
+	return data, nil
+}
+
+// setDefaultTransactionParams sets default values for value and gasPrice if not provided.
+func setDefaultTransactionParams(value, gasPrice **big.Int) {
+	if *value == nil {
+		*value = big.NewInt(0)
+	}
+
+	if *gasPrice == nil {
+		*gasPrice = big.NewInt(1000000000) // 1 gwei default
+	}
+}
+
+// buildTransaction creates a transaction with gas estimation if needed.
+func (p *PrivateKeySignerWithTransport) buildTransaction(contractAddress common.Address, nonce uint64, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*types.Transaction, error) {
+	// Get chain ID from transport
+	chainID, err := p.transport.GetChainID()
 	if err != nil {
 		return nil, err
 	}
 
-	// Set default value if nil
-	if value == nil {
-		value = big.NewInt(0)
-	}
+	// Use EIP-1559 transaction for better compatibility
+	gasTipCap := gasPrice
+	gasFeeCap := new(big.Int).Mul(gasPrice, big.NewInt(2)) // 2x gasPrice for max fee
 
-	// Set default gas price if nil
-	if gasPrice == nil {
-		gasPrice = big.NewInt(1000000000) // 1 gwei default
-	}
-
-	// Create transaction
-	var tx *types.Transaction
 	if gasLimit == 0 {
-		// Need to estimate gas
-		tempTx := types.NewTransaction(nonce, contractAddress, value, 1000000, gasPrice, data)
-		estimatedGas, err := p.transport.EstimateGas(tempTx)
+		// Estimate gas using a signed transaction so it has a valid 'from' address
+		// Use a reasonable default gas limit for estimation (not too high to avoid balance issues)
+		tempTx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   chainID,
+			Nonce:     nonce,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			Gas:       100000, // reasonable gas limit for estimation
+			To:        &contractAddress,
+			Value:     value,
+			Data:      data,
+		})
+
+		// Sign the temp transaction so it has a valid 'from' address
+		signedTempTx, err := p.PrivateKeySigner.SignTransaction(tempTx)
 		if err != nil {
 			return nil, err
 		}
-		gasLimit = estimatedGas
+
+		estimatedGas, err := p.transport.EstimateGas(signedTempTx)
+		if err != nil {
+			return nil, err
+		}
+		// Add 50% buffer to gas estimate to avoid out-of-gas errors
+		// Gas estimation can be inaccurate, especially for complex contracts
+		gasLimit = estimatedGas + (estimatedGas / 2)
 	}
 
-	tx = types.NewTransaction(nonce, contractAddress, value, gasLimit, gasPrice, data)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasTipCap: gasTipCap,
+		GasFeeCap: gasFeeCap,
+		Gas:       gasLimit,
+		To:        &contractAddress,
+		Value:     value,
+		Data:      data,
+	})
+	return tx, nil
+}
 
+// executeWriteTransaction signs and sends a transaction, then waits for receipt.
+func (p *PrivateKeySignerWithTransport) executeWriteTransaction(tx *types.Transaction) ([]any, error) {
 	// Sign the transaction
 	signedTx, err := p.PrivateKeySigner.SignTransaction(tx)
 	if err != nil {
@@ -153,6 +188,45 @@ func (p *PrivateKeySignerWithTransport) CallContractMethod(contractAddress commo
 
 	// Return status and transaction hash
 	return []any{receipt.Status, txHash.Hex()}, nil
+}
+
+// CallContractMethod implements SignerWithTransport.
+func (p *PrivateKeySignerWithTransport) CallContractMethod(contractAddress common.Address, contractABI abi.ABI, methodName string, value *big.Int, gasLimit uint64, gasPrice *big.Int, args ...any) (result []any, err error) {
+	// Find method in ABI
+	method := findMethodInABI(contractABI, methodName)
+	if method == nil {
+		return nil, errors.NewABIError(errors.ErrCodeMethodNotFound, fmt.Sprintf("method %s not found in ABI", methodName))
+	}
+
+	// Check if it's a read-only operation
+	if method.IsReadOnly() {
+		return p.executeReadOnlyCall(contractAddress, contractABI, method, methodName, args...)
+	}
+
+	// Write operation - pack function data
+	data, err := p.packFunctionData(contractABI, methodName, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get nonce for transaction
+	signerAddress := p.PrivateKeySigner.GetAddress()
+	nonce, err := p.transport.GetTransactionCount(signerAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set default parameters
+	setDefaultTransactionParams(&value, &gasPrice)
+
+	// Build transaction with gas estimation
+	tx, err := p.buildTransaction(contractAddress, nonce, value, gasLimit, gasPrice, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute the transaction
+	return p.executeWriteTransaction(tx)
 }
 
 // EstimateGas implements SignerWithTransport.
