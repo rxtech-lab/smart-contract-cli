@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 )
 
 // routeEntry represents a route in the navigation stack.
@@ -22,13 +23,15 @@ type RouterImplementation struct {
 	currentRoute     *routeEntry
 	navigationStack  []routeEntry
 	currentComponent View
-	pendingCmd       tea.Cmd // Command to be returned from Update after navigation
+	pendingCmd       tea.Cmd                // Command to be returned from Update after navigation
+	sharedMemory     storage.SharedMemory
 }
 
 func NewRouter() Router {
 	return &RouterImplementation{
 		routes:          []Route{},
 		navigationStack: []routeEntry{},
+		sharedMemory:    storage.NewSharedMemory(),
 	}
 }
 
@@ -38,7 +41,7 @@ func (r *RouterImplementation) Init() tea.Cmd {
 		// Only create a new component if one doesn't exist
 		// This preserves components created by NavigateTo before Init
 		if r.currentComponent == nil {
-			r.currentComponent = r.currentRoute.route.Component(r)
+			r.currentComponent = r.currentRoute.route.Component(r, r.sharedMemory)
 		}
 		return r.currentComponent.Init()
 	}
@@ -174,7 +177,7 @@ func (r *RouterImplementation) NavigateTo(path string, queryParams map[string]st
 	}
 
 	r.currentRoute = &entry
-	r.currentComponent = route.Component(r)
+	r.currentComponent = route.Component(r, r.sharedMemory)
 	// Initialize the new component and store the command
 	if r.currentComponent != nil {
 		r.pendingCmd = r.currentComponent.Init()
@@ -198,7 +201,7 @@ func (r *RouterImplementation) ReplaceRoute(path string) error {
 
 	// Replace current route without modifying the stack
 	r.currentRoute = &entry
-	r.currentComponent = route.Component(r)
+	r.currentComponent = route.Component(r, r.sharedMemory)
 	// Initialize the new component and store the command
 	if r.currentComponent != nil {
 		r.pendingCmd = r.currentComponent.Init()
@@ -224,7 +227,7 @@ func (r *RouterImplementation) Back() {
 	lastIndex := len(r.navigationStack) - 1
 	r.currentRoute = &r.navigationStack[lastIndex]
 	r.navigationStack = r.navigationStack[:lastIndex]
-	r.currentComponent = r.currentRoute.route.Component(r)
+	r.currentComponent = r.currentRoute.route.Component(r, r.sharedMemory)
 	// Initialize the component after going back and store the command
 	if r.currentComponent != nil {
 		r.pendingCmd = r.currentComponent.Init()
@@ -263,7 +266,7 @@ func (r *RouterImplementation) GetPath() string {
 // Refresh implements Router.
 func (r *RouterImplementation) Refresh() {
 	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
-		r.currentComponent = r.currentRoute.route.Component(r)
+		r.currentComponent = r.currentRoute.route.Component(r, r.sharedMemory)
 		r.currentComponent.Init()
 	}
 }

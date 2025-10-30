@@ -1,6 +1,7 @@
 package view
 
 import tea "github.com/charmbracelet/bubbletea"
+import "github.com/rxtech-lab/smart-contract-cli/internal/storage"
 
 type HelpDisplayOption string
 
@@ -55,5 +56,5 @@ type Router interface {
 
 type Route struct {
 	Path      string
-	Component func(router Router) View
+	Component func(router Router, sharedMemory storage.SharedMemory) View
 }

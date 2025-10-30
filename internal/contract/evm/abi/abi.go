@@ -2,6 +2,11 @@ package abi
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
 	"github.com/rxtech-lab/smart-contract-cli/internal/errors"
 )
@@ -31,4 +36,63 @@ func ParseAbi(abi string) (AbiArray, error) {
 	}
 
 	return abiArray, nil
+}
+
+// ReadAbi reads an ABI from a local file path or download it from a remote source
+func ReadAbi(filepath string) (AbiArray, error) {
+	// Check if filepath is a URL
+	if strings.HasPrefix(filepath, "http://") || strings.HasPrefix(filepath, "https://") {
+		return downloadAbi(filepath)
+	}
+
+	// Otherwise, treat it as a local file path
+	return readAbiFromFile(filepath)
+}
+
+// downloadAbi downloads an ABI from a remote URL and parses it.
+func downloadAbi(url string) (AbiArray, error) {
+	// Create HTTP client
+	client := &http.Client{}
+
+	// Create request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to create request for URL: %s", url))
+	}
+
+	// Set headers
+	req.Header.Set("Accept", "application/json")
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to download ABI from URL: %s", url))
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.NewABIError(errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to download ABI: received status code %d from URL: %s", resp.StatusCode, url))
+	}
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to read response body from URL: %s", url))
+	}
+
+	// Parse ABI
+	return ParseAbi(string(body))
+}
+
+// readAbiFromFile reads an ABI from a local file and parses it.
+func readAbiFromFile(filepath string) (AbiArray, error) {
+	// Read file
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to read ABI file: %s", filepath))
+	}
+
+	// Parse ABI
+	return ParseAbi(string(data))
 }

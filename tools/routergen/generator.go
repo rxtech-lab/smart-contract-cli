@@ -112,6 +112,7 @@ func GenerateRoutesFile(routes []RouteDefinition, moduleName string) string {
 	// Imports
 	sb.WriteString("import (\n")
 	sb.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/view\"\n")
+	sb.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/storage\"\n")
 
 	// Import each page package (skip root package to avoid import cycle)
 	appPackagePath := moduleName + "/app"
@@ -131,9 +132,9 @@ func GenerateRoutesFile(routes []RouteDefinition, moduleName string) string {
 	for _, route := range routes {
 		// For root package, call NewPage() directly without package prefix
 		if route.PackagePath == appPackagePath {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router) view.View { return NewPage(r) }},\n", route.Path))
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r) }},\n", route.Path))
 		} else {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router) view.View { return %s.NewPage(r) }},\n",
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return %s.NewPage(r) }},\n",
 				route.Path, route.PackageAlias))
 		}
 	}

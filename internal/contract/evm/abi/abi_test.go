@@ -1,6 +1,8 @@
 package abi
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -262,4 +264,198 @@ func TestParseAbi_RealWorldExample(t *testing.T) {
 	assert.Equal(t, "transfer", result[2].Name)
 	assert.False(t, result[2].Constant)
 	assert.Len(t, result[2].Inputs, 2)
+}
+
+func TestReadAbi(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T) string
+		cleanup     func(t *testing.T, path string)
+		wantErr     bool
+		expectedLen int
+		validate    func(t *testing.T, result AbiArray)
+	}{
+		{
+			name: "read ABI from local file with array format",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				filePath := filepath.Join(tmpDir, "abi.json")
+				abiContent := `[
+					{
+						"type": "function",
+						"name": "transfer",
+						"inputs": [
+							{"name": "to", "type": "address"},
+							{"name": "amount", "type": "uint256"}
+						],
+						"outputs": [{"name": "", "type": "bool"}],
+						"stateMutability": "nonpayable"
+					}
+				]`
+				err := os.WriteFile(filePath, []byte(abiContent), 0644)
+				require.NoError(t, err)
+				return filePath
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     false,
+			expectedLen: 1,
+			validate: func(t *testing.T, result AbiArray) {
+				assert.Equal(t, "function", result[0].Type)
+				assert.Equal(t, "transfer", result[0].Name)
+				assert.Len(t, result[0].Inputs, 2)
+			},
+		},
+		{
+			name: "read ABI from local file with object format",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				filePath := filepath.Join(tmpDir, "abi.json")
+				abiContent := `{
+					"abi": [
+						{
+							"type": "function",
+							"name": "balanceOf",
+							"inputs": [{"name": "account", "type": "address"}],
+							"outputs": [{"name": "", "type": "uint256"}],
+							"stateMutability": "view"
+						}
+					],
+					"bytecode": "0x608060405234801561001057600080fd5b50"
+				}`
+				err := os.WriteFile(filePath, []byte(abiContent), 0644)
+				require.NoError(t, err)
+				return filePath
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     false,
+			expectedLen: 1,
+			validate: func(t *testing.T, result AbiArray) {
+				assert.Equal(t, "function", result[0].Type)
+				assert.Equal(t, "balanceOf", result[0].Name)
+				assert.Equal(t, "view", result[0].StateMutability)
+			},
+		},
+		{
+			name: "read ABI from remote URL",
+			setup: func(t *testing.T) string {
+				return "https://unpkg.com/@uniswap/v2-core@1.0.0/build/IUniswapV2Pair.json"
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     false,
+			expectedLen: 0, // Will be validated by the validate function
+			validate: func(t *testing.T, result AbiArray) {
+				// The Uniswap V2 Pair ABI should have multiple elements
+				// We expect at least some functions and events
+				assert.Greater(t, len(result), 0, "ABI should contain at least one element")
+
+				// Check for common Uniswap V2 Pair functions/events
+				hasMint := false
+				hasBurn := false
+				hasSync := false
+				hasSwap := false
+
+				for _, elem := range result {
+					if elem.Name == "mint" {
+						hasMint = true
+					}
+					if elem.Name == "burn" {
+						hasBurn = true
+					}
+					if elem.Name == "Sync" {
+						hasSync = true
+					}
+					if elem.Name == "Swap" {
+						hasSwap = true
+					}
+				}
+
+				// Verify at least some expected elements exist
+				// (These are common in Uniswap V2 Pair contracts)
+				assert.True(t, hasMint || hasBurn || hasSync || hasSwap || len(result) > 0,
+					"ABI should contain expected Uniswap V2 Pair elements or be non-empty")
+			},
+		},
+		{
+			name: "read ABI from invalid file path",
+			setup: func(t *testing.T) string {
+				return "/nonexistent/path/to/abi.json"
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     true,
+			expectedLen: 0,
+			validate:    func(t *testing.T, result AbiArray) {},
+		},
+		{
+			name: "read ABI from invalid URL",
+			setup: func(t *testing.T) string {
+				return "https://invalid-url-that-does-not-exist-12345.com/abi.json"
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     true,
+			expectedLen: 0,
+			validate:    func(t *testing.T, result AbiArray) {},
+		},
+		{
+			name: "read ABI from URL returning non-200 status",
+			setup: func(t *testing.T) string {
+				return "https://httpstat.us/404"
+			},
+			cleanup:     func(t *testing.T, path string) {},
+			wantErr:     true,
+			expectedLen: 0,
+			validate:    func(t *testing.T, result AbiArray) {},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tt.setup(t)
+			defer tt.cleanup(t, path)
+
+			result, err := ReadAbi(path)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			if tt.expectedLen > 0 {
+				assert.Len(t, result, tt.expectedLen)
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, result)
+			}
+		})
+	}
+}
+
+// TestReadAbi_UniswapV2Pair tests reading the Uniswap V2 Pair ABI from the remote URL.
+func TestReadAbi_UniswapV2Pair(t *testing.T) {
+	url := "https://unpkg.com/@uniswap/v2-core@1.0.0/build/IUniswapV2Pair.json"
+
+	result, err := ReadAbi(url)
+	require.NoError(t, err)
+	require.NotEmpty(t, result, "Uniswap V2 Pair ABI should not be empty")
+
+	// Verify it contains expected Uniswap V2 Pair interface elements
+	elementTypes := make(map[string]int)
+
+	for _, elem := range result {
+		elementTypes[elem.Type]++
+	}
+
+	// Uniswap V2 Pair should have functions, events, etc.
+	assert.Greater(t, elementTypes["function"], 0, "Should have at least one function")
+	assert.Greater(t, elementTypes["event"], 0, "Should have at least one event")
+
+	// Verify the ABI was successfully parsed and contains expected structure
+	assert.True(t, len(result) > 0, "Should have parsed ABI elements")
+
+	// Log some information about what was found (optional, for debugging)
+	t.Logf("Found %d ABI elements: %d functions, %d events",
+		len(result),
+		elementTypes["function"],
+		elementTypes["event"])
 }

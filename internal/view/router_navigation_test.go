@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
 	"github.com/stretchr/testify/suite"
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 )
 
 type HomeModel struct {
@@ -100,8 +101,8 @@ func (s *RouterNavigationTestSuite) getOutput(tm *teatest.TestModel) string {
 // TestEnterKeyNavigation tests that pressing Enter navigates to the sub page
 func (s *RouterNavigationTestSuite) TestEnterKeyNavigation() {
 	router := NewRouter()
-	router.AddRoute(Route{Path: "/", Component: func(r Router) View { return NewPage(r) }})
-	router.AddRoute(Route{Path: "/page2", Component: func(r Router) View { return NewSubPage(r) }})
+	router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewPage(r) }})
+	router.AddRoute(Route{Path: "/page2", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewSubPage(r) }})
 	router.NavigateTo("/", nil)
 
 	tm := teatest.NewTestModel(
@@ -133,8 +134,8 @@ func (s *RouterNavigationTestSuite) TestEnterKeyNavigation() {
 // TestEscKeyNavigation tests that pressing Esc navigates back to the previous page
 func (s *RouterNavigationTestSuite) TestEscKeyNavigation() {
 	router := NewRouter()
-	router.AddRoute(Route{Path: "/", Component: func(r Router) View { return NewPage(r) }})
-	router.AddRoute(Route{Path: "/page2", Component: func(r Router) View { return NewSubPage(r) }})
+	router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewPage(r) }})
+	router.AddRoute(Route{Path: "/page2", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewSubPage(r) }})
 
 	// Navigate to sub page first
 	router.NavigateTo("/page2", nil)
