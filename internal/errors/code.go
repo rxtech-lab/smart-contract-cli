@@ -39,6 +39,12 @@ const (
 	ErrCodeContractCodeRequired  ErrorCode = "CONTRACT_CODE_REQUIRED"
 	ErrCodeContractCompileFailed ErrorCode = "CONTRACT_COMPILE_FAILED"
 
+	// Database Domain Error Codes.
+	ErrCodeRecordNotFound           ErrorCode = "RECORD_NOT_FOUND"
+	ErrCodeDatabaseOperationFailed  ErrorCode = "DATABASE_OPERATION_FAILED"
+	ErrCodeInvalidPageNumber        ErrorCode = "INVALID_PAGE_NUMBER"
+	ErrCodeInvalidPageSize          ErrorCode = "INVALID_PAGE_SIZE"
+
 	// General Error Codes.
 	ErrCodeUnknown ErrorCode = "UNKNOWN"
 )

@@ -104,3 +104,15 @@ func NewContractError(code ErrorCode, message string) *CustomError {
 func WrapContractError(err error, code ErrorCode, message string) *CustomError {
 	return Wrap(err, code, message)
 }
+
+// Database Domain Error Constructors
+
+// NewDatabaseError creates a new database-related error.
+func NewDatabaseError(code ErrorCode, message string) *CustomError {
+	return New(code, message)
+}
+
+// WrapDatabaseError wraps an error with a database error code.
+func WrapDatabaseError(err error, code ErrorCode, message string) *CustomError {
+	return Wrap(err, code, message)
+}
