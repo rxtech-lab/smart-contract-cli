@@ -2,11 +2,18 @@ package view
 
 import tea "github.com/charmbracelet/bubbletea"
 
+type HelpDisplayOption string
+
+const (
+	HelpDisplayOptionOverride HelpDisplayOption = "override"
+	HelpDisplayOptionAppend   HelpDisplayOption = "append"
+)
+
 type View interface {
 	View() string
 	Init() tea.Cmd
 	Update(msg tea.Msg) (tea.Model, tea.Cmd)
-	Help() string
+	Help() (string, HelpDisplayOption)
 }
 
 type Router interface {

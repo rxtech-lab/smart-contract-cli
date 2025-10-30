@@ -1,33 +1,31 @@
 package app
 
 import (
-	"fmt"
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
 
 type Option struct {
 	Label string
-	Value string
+	Route string
 }
 
 var options = []Option{
-	{Label: "EVM", Value: "evm"},
-	{Label: "Solana", Value: "solana"},
-	{Label: "Bitcoin", Value: "bitcoin"},
+	{Label: "EVM", Route: "/evm"},
 }
 
 type Model struct {
 	router         view.Router
 	selectedOption Option
+	selectedIndex  int
 }
 
 func NewPage(router view.Router) view.View {
 	return Model{
 		router:         router,
-		selectedOption: options[0], // Default to first option
+		selectedOption: options[0],
+		selectedIndex:  0,
 	}
 }
 
@@ -35,59 +33,64 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m Model) Help() string {
-	return "Use arrow keys to navigate and enter to select"
+func (m Model) Help() (string, view.HelpDisplayOption) {
+	return "Use arrow keys to navigate and enter to select", view.HelpDisplayOptionAppend
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "up", "k":
-			// Find current index and move up
-			for i, opt := range options {
-				if opt.Value == m.selectedOption.Value {
-					if i > 0 {
-						m.selectedOption = options[i-1]
-					}
-					break
-				}
-			}
-		case "down", "j":
-			// Find current index and move down
-			for i, opt := range options {
-				if opt.Value == m.selectedOption.Value {
-					if i < len(options)-1 {
-						m.selectedOption = options[i+1]
-					}
-					break
-				}
-			}
-		case "enter", " ":
-			// Confirm selection - could navigate or perform action
-			// Example: m.router.NavigateTo("/"+m.selectedOption.Value, nil)
-		case "q", "ctrl+c":
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, nil
+	}
+
+	switch keyMsg.String() {
+	case "up", "k":
+		m.selectedIndex = m.moveUp(m.selectedIndex)
+		m.selectedOption = options[m.selectedIndex]
+	case "down", "j":
+		m.selectedIndex = m.moveDown(m.selectedIndex)
+		m.selectedOption = options[m.selectedIndex]
+	case "enter", " ":
+		err := m.router.NavigateTo(m.selectedOption.Route, nil)
+		if err != nil {
 			return m, tea.Quit
 		}
+	case "q", "ctrl+c":
+		return m, tea.Quit
 	}
+
 	return m, nil
 }
 
+func (m Model) moveUp(currentIndex int) int {
+	if currentIndex > 0 {
+		return currentIndex - 1
+	}
+	return currentIndex
+}
+
+func (m Model) moveDown(currentIndex int) int {
+	if currentIndex < len(options)-1 {
+		return currentIndex + 1
+	}
+	return currentIndex
+}
+
 func (m Model) View() string {
-	var b strings.Builder
-
-	b.WriteString("Select a blockchain:\n\n")
-
-	for _, option := range options {
-		marker := "  "
-		if m.selectedOption.Value == option.Value {
-			marker = "> "
-		}
-
-		b.WriteString(fmt.Sprintf("%s%s\n", marker, option.Label))
+	// Convert options to ListItems
+	items := make([]component.ListItem, len(options))
+	for i, opt := range options {
+		items[i] = component.Item(opt.Label, opt.Route)
 	}
 
-	b.WriteString(fmt.Sprintf("\nSelected: %s\n", m.selectedOption.Label))
-
-	return b.String()
+	return component.VStackC(
+		component.T("Select a blockchain:").Bold(true).Primary(),
+		component.SpacerV(1),
+		component.NewList(items).
+			Selected(m.selectedOption.Route).
+			SelectedPrefix("> ").
+			UnselectedPrefix("  "),
+		component.SpacerV(1),
+		component.T("Selected: "+m.selectedOption.Label).Muted(),
+	).Render()
 }

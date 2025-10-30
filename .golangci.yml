@@ -166,6 +166,11 @@ issues:
       linters:
         - stylecheck
 
+    # Exclude component package from godot (type names like "If" cause false positives)
+    - path: internal/ui/component/
+      linters:
+        - godot
+
     # Exclude generated files from all linters
     - path: _gen\.go
       linters:

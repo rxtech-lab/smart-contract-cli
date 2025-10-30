@@ -49,7 +49,9 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if r.currentComponent != nil {
 		updatedModel, cmd := r.currentComponent.Update(msg)
-		r.currentComponent = updatedModel.(View)
+		if view, ok := updatedModel.(View); ok {
+			r.currentComponent = view
+		}
 		return r, cmd
 	}
 	return r, nil
@@ -64,7 +66,7 @@ func (r *RouterImplementation) View() string {
 			BorderForeground(lipgloss.Color("63")). // Blue color
 			Padding(1, 2).
 			Width(lipgloss.Width(r.currentComponent.View()) + 4). // Add padding to width
-			MaxWidth(120) // Set a reasonable max width
+			MaxWidth(120)                                         // Set a reasonable max width
 
 		// Get the component view
 		componentView := boxStyle.Render(r.currentComponent.View())
@@ -76,10 +78,13 @@ func (r *RouterImplementation) View() string {
 			MarginTop(1)
 
 		// Combine component help and exit instruction
-		componentHelp := r.currentComponent.Help()
+		componentHelp, helpDisplayOption := r.currentComponent.Help()
 		helpText := "Ctrl + c to exit"
-		if componentHelp != "" {
+		if componentHelp != "" && helpDisplayOption == HelpDisplayOptionAppend {
 			helpText = componentHelp + " • " + helpText
+		}
+		if componentHelp != "" && helpDisplayOption == HelpDisplayOptionOverride {
+			helpText = componentHelp
 		}
 
 		return componentView + "\n" + helpStyle.Render(helpText)

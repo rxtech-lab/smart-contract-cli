@@ -310,6 +310,463 @@ router.ReplaceRoute("/dashboard", nil)
 - Facilitates testing through dependency injection
 - Follows the project's pattern of interface-based abstractions (see Signer, Transport)
 
+## Declarative UI Component System
+
+### Overview
+
+The component system (`internal/ui/component/`) provides a React/SwiftUI-like declarative approach to building TUI views. Instead of imperatively building strings with `strings.Builder`, you compose UI using nested components with chainable modifiers.
+
+**Location:** `internal/ui/component/`
+
+### Core Philosophy
+
+**Before (Imperative):**
+```go
+func (m Model) View() string {
+    var b strings.Builder
+    b.WriteString("Select a blockchain:\n\n")
+    for _, option := range options {
+        marker := "  "
+        if m.selectedOption.Value == option.Value {
+            marker = "> "
+        }
+        b.WriteString(fmt.Sprintf("%s%s\n", marker, option.Label))
+    }
+    return b.String()
+}
+```
+
+**After (Declarative):**
+```go
+func (m Model) View() string {
+    items := make([]ListItem, len(options))
+    for i, opt := range options {
+        items[i] = Item(opt.Label, opt.Value)
+    }
+
+    return VStackC(
+        T("Select a blockchain:").Bold(true).Primary(),
+        SpacerV(1),
+        Card(
+            NewList(items).
+                Selected(m.selectedOption.Value).
+                SelectedPrefix("> ").
+                UnselectedPrefix("  "),
+        ),
+        SpacerV(1),
+        T("Selected: "+m.selectedOption.Label).Muted(),
+    ).Render()
+}
+```
+
+### Architecture
+
+**Component Interface** (`component.go`):
+```go
+type Component interface {
+    Render() string
+}
+```
+
+All components implement `Render()` which returns the final string representation. Components are composable, immutable (return new instances on modification), and integrate seamlessly with `lipgloss` for styling.
+
+### Core Components
+
+#### 1. Text Component (`text.go`)
+
+Rich text rendering with chainable modifiers:
+
+```go
+T("Hello").Bold(true).Primary()
+T("Error message").Error()
+T("Muted text").Muted()
+T("Styled").
+    Bold(true).
+    Foreground(lipgloss.Color("205")).
+    Padding(1, 2).
+    Border(lipgloss.RoundedBorder())
+```
+
+**Preset Styles:**
+- `.Primary()` - Bold, primary color
+- `.Success()` - Green text
+- `.Error()` - Bold red text
+- `.Warning()` - Yellow text
+- `.Info()` - Blue text
+- `.Muted()` - Faint gray text
+- `.Secondary()` - Faint text
+
+**Modifiers:**
+- Style: `Bold()`, `Italic()`, `Underline()`, `Strikethrough()`, `Faint()`, `Blink()`
+- Color: `Foreground()`, `Background()`, `Color()`, `BgColor()`
+- Layout: `Width()`, `Height()`, `MaxWidth()`, `MaxHeight()`, `Align()`
+- Spacing: `Padding()`, `Margin()`, `PaddingAll()`, `MarginAll()`
+- Border: `Border()`, `BorderStyle()`, `BorderTop()`, `BorderForeground()`
+
+#### 2. Layout Components (`layout.go`)
+
+**VStack** - Vertical stack (like SwiftUI):
+```go
+VStackC(
+    T("Line 1"),
+    T("Line 2"),
+    T("Line 3"),
+).Spacing(1).Render()
+
+// Or with methods
+NewVStack(
+    T("Line 1"),
+    T("Line 2"),
+).Spacing(2).Align(lipgloss.Center)
+```
+
+**HStack** - Horizontal stack:
+```go
+HStackC(
+    T("Left"),
+    SpacerH(5),
+    T("Right"),
+).Spacing(2).Render()
+```
+
+**ZStack** - Overlay stack (layers components):
+```go
+ZStackC(
+    T("Background"),
+    T("Foreground"),
+).Align(lipgloss.Center).Render()
+```
+
+**Spacer** - Flexible/fixed spacing:
+```go
+SpacerV(2)  // Vertical spacer (2 empty lines)
+SpacerH(5)  // Horizontal spacer (5 spaces)
+```
+
+**Divider** - Horizontal line:
+```go
+DividerLine(40)  // 40-character divider
+NewDivider("─", 20).WithStyle(style)
+```
+
+#### 3. List Components (`list.go`)
+
+**Selectable List:**
+```go
+items := []ListItem{
+    Item("Option 1", "opt1"),
+    Item("Option 2", "opt2"),
+}
+
+NewList(items).
+    Selected("opt1").
+    SelectedPrefix("> ").
+    UnselectedPrefix("  ").
+    Spacing(1)
+```
+
+**Numbered List:**
+```go
+NewNumberedList(
+    T("First item"),
+    T("Second item"),
+    T("Third item"),
+).Start(1).Spacing(1)
+```
+
+**Bullet List:**
+```go
+NewBulletList(
+    T("Item 1"),
+    T("Item 2"),
+).Bullet("• ").Spacing(1)
+```
+
+**String List** (convenience):
+```go
+StringList([]string{"A", "B", "C"}).Selected("B")
+```
+
+**Custom Item Rendering:**
+```go
+NewList(items).RenderItem(func(item ListItem, isSelected bool) Component {
+    return HStackC(
+        IfC(isSelected, T("→ "), T("  ")),
+        T(item.GetLabel()).Bold(isSelected),
+    )
+})
+```
+
+#### 4. Container Components (`container.go`)
+
+**Box** - Container with borders and styling:
+```go
+NewBox(T("Content")).
+    RoundedBorder().
+    BorderColor(lipgloss.Color("205")).
+    PaddingAll(1).
+    Width(40)
+```
+
+**Border Presets:**
+- `.RoundedBorder()` - Rounded corners
+- `.NormalBorder()` - Standard box border
+- `.ThickBorder()` - Thick border
+- `.DoubleBorder()` - Double-line border
+- `.HiddenBorder()` - Invisible border (for spacing)
+
+**Convenience Containers:**
+```go
+Card(content)   // Rounded border + padding
+Panel(content)  // Normal border + padding
+```
+
+**Padding Container:**
+```go
+NewPadding(content).
+    All(2).           // Equal padding all sides
+    Vertical(1).      // Top and bottom
+    Horizontal(2).    // Left and right
+    Top(1).           // Individual sides
+    UseMargins()      // Use margins instead of padding
+```
+
+**Center Container:**
+```go
+NewCenter(content, 80, 24)  // Center in 80x24 space
+```
+
+#### 5. Conditional Rendering (`conditional.go`)
+
+**If/Else:**
+```go
+IfC(condition, T("True"), T("False"))
+IfElse(isLoggedIn, T("Welcome!"), T("Login"))
+```
+
+**If/Then (no else):**
+```go
+IfThenC(showMessage, T("Message"))
+When(isAdmin, T("Admin Panel"))
+```
+
+**Unless (inverse of IfThen):**
+```go
+UnlessC(isHidden, T("Visible content"))
+```
+
+**Switch Statement:**
+```go
+SwitchC(
+    Case(Match(status, "success"), T("✓ Success").Success()),
+    Case(Match(status, "error"), T("✗ Error").Error()),
+    Case(Match(status, "pending"), T("⏳ Pending").Warning()),
+).Default(T("Unknown"))
+```
+
+**Match Helpers:**
+```go
+Match(value, target)              // Equality check
+MatchAny(value, "a", "b", "c")   // Multiple values
+MatchRange(value, 1, 10)         // Range check (int/float)
+```
+
+**Simple Helpers:**
+```go
+Show(condition, component)       // Show if true
+Hide(condition, component)       // Hide if true
+Toggle(state, onComp, offComp)   // Toggle between two
+```
+
+### Usage Patterns
+
+#### Import Pattern
+
+Use dot import for cleaner syntax:
+```go
+import (
+    . "github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
+    "github.com/charmbracelet/lipgloss"
+)
+```
+
+#### Component Naming Conventions
+
+- **Struct types**: `VStack`, `HStack`, `Text`, `List`, etc.
+- **Constructor functions**: `NewVStack()`, `NewText()`, `NewList()`
+- **Convenience functions** (return Component interface): `VStackC()`, `T()`, `ListC()`
+- Use convenience functions for inline composition
+- Use constructors when you need to call methods before rendering
+
+#### Complex Layouts
+
+```go
+// Dashboard example
+VStackC(
+    T("Dashboard").Bold(true).Primary(),
+    SpacerV(1),
+
+    // Stats row
+    HStackC(
+        Card(VStackC(
+            T("Users").Muted(),
+            T("1,234").Bold(true).Primary(),
+        )),
+        SpacerH(2),
+        Card(VStackC(
+            T("Revenue").Muted(),
+            T("$45,678").Bold(true).Success(),
+        )),
+    ),
+
+    SpacerV(1),
+
+    // Recent activity
+    Card(
+        VStackC(
+            T("Recent Activity").Bold(true),
+            DividerLine(40),
+            SpacerV(1),
+            NewBulletList(
+                T("User registered"),
+                T("Payment processed"),
+                T("Backup completed"),
+            ),
+        ),
+    ),
+).Render()
+```
+
+#### Form-like UIs
+
+```go
+VStackC(
+    T("Settings").Bold(true).Primary(),
+    SpacerV(1),
+
+    VStackC(
+        T("Username: " + username),
+        When(len(username) >= 3, T("✓ Valid").Success()),
+        Unless(len(username) >= 3, T("✗ Too short").Error()),
+    ),
+
+    SpacerV(1),
+
+    IfC(
+        isFormValid,
+        BoxC(T("Save")).Background(lipgloss.Color("42")),
+        BoxC(T("Save")).Background(lipgloss.Color("240")),
+    ),
+).Render()
+```
+
+#### Table-like Layouts
+
+```go
+VStackC(
+    HStackC(
+        T("ID").Bold(true).Width(10),
+        T("Name").Bold(true).Width(20),
+        T("Status").Bold(true).Width(15),
+    ),
+    DividerLine(45),
+    HStackC(
+        T("1").Width(10),
+        T("Alice").Width(20),
+        T("Active").Success().Width(15),
+    ),
+    HStackC(
+        T("2").Width(10),
+        T("Bob").Width(20),
+        T("Inactive").Muted().Width(15),
+    ),
+).Render()
+```
+
+### Testing
+
+**Location:** `internal/ui/component/component_test.go`
+
+**Framework:** `testify/suite` (project standard)
+
+**Coverage:** 50+ comprehensive test cases covering:
+- All component types and their methods
+- Chainable modifiers
+- Layout composition
+- Conditional rendering
+- Complex nested scenarios
+- Style application
+
+**Running Tests:**
+```bash
+go test ./internal/ui/component/ -v
+```
+
+### Examples
+
+**Location:** `internal/ui/component/examples_test.go`
+
+Contains 10+ real-world examples demonstrating:
+- Basic text styling
+- Layout patterns (VStack, HStack, Card)
+- Interactive lists
+- Conditional rendering
+- Complex dashboards
+- Form validation UIs
+- Status pages
+- Responsive layouts
+- Table-like structures
+
+### Design Principles
+
+1. **Declarative over Imperative**: Describe what you want, not how to build it
+2. **Composability**: Components nest infinitely and predictably
+3. **Immutability**: Methods return new instances, never mutate
+4. **Type Safety**: Go compiler catches errors at compile time
+5. **Integration**: Seamless `lipgloss` integration for all styling
+6. **Familiarity**: API inspired by React/SwiftUI for easy adoption
+7. **Performance**: Efficient rendering with minimal allocations
+
+### Integration with Bubble Tea
+
+Components work seamlessly with Bubble Tea's Model-View-Update pattern:
+
+```go
+type Model struct {
+    selectedIndex int
+    items         []string
+}
+
+func (m Model) View() string {
+    return VStackC(
+        T("My App").Bold(true).Primary(),
+        SpacerV(1),
+        StringList(m.items).Selected(m.items[m.selectedIndex]),
+    ).Render()
+}
+```
+
+The component system handles rendering; Bubble Tea handles state management and user input.
+
+### Best Practices
+
+1. **Use convenience functions** (`VStackC`, `T`) for inline composition
+2. **Use constructors** (`NewVStack`, `NewText`) when calling methods
+3. **Leverage presets** (`.Primary()`, `.Success()`) for consistent styling
+4. **Compose small components** into larger ones for reusability
+5. **Extract complex layouts** into helper functions
+6. **Use conditionals** (`IfC`, `When`) for dynamic UIs
+7. **Prefer semantic names** over generic styling when possible
+8. **Test component rendering** in isolation before integration
+
+### Common Gotcalls
+
+- Components are immutable - methods return new instances
+- Don't forget to call `.Render()` at the end of your composition
+- Use `Component` interface for function parameters, not concrete types
+- Dot imports (`.`) are recommended for cleaner syntax
+- `lipgloss.Color()` requires string color codes (e.g., "205", "42")
+
 ## Key Implementation Details
 
 ### ABI Parsing

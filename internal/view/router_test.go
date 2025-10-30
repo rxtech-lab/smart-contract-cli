@@ -28,8 +28,8 @@ func (m *MockView) View() string {
 	return m.viewContent
 }
 
-func (m *MockView) Help() string {
-	return ""
+func (m *MockView) Help() (string, HelpDisplayOption) {
+	return "", HelpDisplayOptionAppend
 }
 
 // RouterTestSuite is the test suite for Router
