@@ -47,5 +47,5 @@ type Router interface {
 
 type Route struct {
 	Path      string
-	Component View
+	Component func(router Router) View
 }

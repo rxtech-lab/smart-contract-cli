@@ -51,7 +51,7 @@ func (suite *RouterTestSuite) TestAddRoute() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
 	route := Route{
 		Path:      "/",
-		Component: mockView,
+		Component: func(r Router) View { return mockView },
 	}
 
 	suite.router.AddRoute(route)
@@ -67,8 +67,8 @@ func (suite *RouterTestSuite) TestSetRoutes() {
 	mockView2 := &MockView{name: "about", viewContent: "About View"}
 
 	routes := []Route{
-		{Path: "/", Component: mockView1},
-		{Path: "/about", Component: mockView2},
+		{Path: "/", Component: func(r Router) View { return mockView1 }},
+		{Path: "/about", Component: func(r Router) View { return mockView2 }},
 	}
 
 	suite.router.SetRoutes(routes)
@@ -84,8 +84,8 @@ func (suite *RouterTestSuite) TestRemoveRoute() {
 	mockView1 := &MockView{name: "home", viewContent: "Home View"}
 	mockView2 := &MockView{name: "about", viewContent: "About View"}
 
-	suite.router.AddRoute(Route{Path: "/", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/about", Component: mockView2})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router) View { return mockView2 }})
 
 	suite.router.RemoveRoute("/about")
 
@@ -97,7 +97,7 @@ func (suite *RouterTestSuite) TestRemoveRoute() {
 // TestNavigateTo tests navigation to a route
 func (suite *RouterTestSuite) TestNavigateTo() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -110,7 +110,7 @@ func (suite *RouterTestSuite) TestNavigateTo() {
 // TestNavigateToWithQueryParams tests navigation with query parameters
 func (suite *RouterTestSuite) TestNavigateToWithQueryParams() {
 	mockView := &MockView{name: "users", viewContent: "Users View"}
-	suite.router.AddRoute(Route{Path: "/users", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/users", Component: func(r Router) View { return mockView }})
 
 	queryParams := map[string]string{
 		"id":   "123",
@@ -134,7 +134,7 @@ func (suite *RouterTestSuite) TestNavigateToInvalidRoute() {
 // TestNavigateToWithPathParams tests navigation with path parameters
 func (suite *RouterTestSuite) TestNavigateToWithPathParams() {
 	mockView := &MockView{name: "user", viewContent: "User View"}
-	suite.router.AddRoute(Route{Path: "/users/:id", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/users/:id", Component: func(r Router) View { return mockView }})
 
 	err := suite.router.NavigateTo("/users/123", nil)
 	assert.NoError(suite.T(), err)
@@ -145,7 +145,7 @@ func (suite *RouterTestSuite) TestNavigateToWithPathParams() {
 // TestNavigateToWithMultiplePathParams tests navigation with multiple path parameters
 func (suite *RouterTestSuite) TestNavigateToWithMultiplePathParams() {
 	mockView := &MockView{name: "comment", viewContent: "Comment View"}
-	suite.router.AddRoute(Route{Path: "/posts/:postId/comments/:commentId", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/posts/:postId/comments/:commentId", Component: func(r Router) View { return mockView }})
 
 	err := suite.router.NavigateTo("/posts/456/comments/789", nil)
 	assert.NoError(suite.T(), err)
@@ -158,8 +158,8 @@ func (suite *RouterTestSuite) TestReplaceRoute() {
 	mockView1 := &MockView{name: "home", viewContent: "Home View"}
 	mockView2 := &MockView{name: "about", viewContent: "About View"}
 
-	suite.router.AddRoute(Route{Path: "/", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/about", Component: mockView2})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router) View { return mockView2 }})
 
 	// Navigate to home
 	err := suite.router.NavigateTo("/", nil)
@@ -179,9 +179,9 @@ func (suite *RouterTestSuite) TestBackNavigation() {
 	mockView2 := &MockView{name: "about", viewContent: "About View"}
 	mockView3 := &MockView{name: "contact", viewContent: "Contact View"}
 
-	suite.router.AddRoute(Route{Path: "/", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/about", Component: mockView2})
-	suite.router.AddRoute(Route{Path: "/contact", Component: mockView3})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router) View { return mockView2 }})
+	suite.router.AddRoute(Route{Path: "/contact", Component: func(r Router) View { return mockView3 }})
 
 	// Navigate through routes
 	suite.router.NavigateTo("/", nil)
@@ -205,7 +205,7 @@ func (suite *RouterTestSuite) TestBackNavigation() {
 // TestBackWithEmptyStack tests back navigation with empty stack
 func (suite *RouterTestSuite) TestBackWithEmptyStack() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 
 	suite.router.NavigateTo("/", nil)
 	assert.False(suite.T(), suite.router.CanGoBack())
@@ -220,8 +220,8 @@ func (suite *RouterTestSuite) TestCanGoBack() {
 	mockView1 := &MockView{name: "home", viewContent: "Home View"}
 	mockView2 := &MockView{name: "about", viewContent: "About View"}
 
-	suite.router.AddRoute(Route{Path: "/", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/about", Component: mockView2})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router) View { return mockView2 }})
 
 	assert.False(suite.T(), suite.router.CanGoBack())
 
@@ -235,14 +235,15 @@ func (suite *RouterTestSuite) TestCanGoBack() {
 // TestGetCurrentRoute tests getting the current route
 func (suite *RouterTestSuite) TestGetCurrentRoute() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	route := Route{Path: "/", Component: mockView}
+	componentFunc := func(r Router) View { return mockView }
+	route := Route{Path: "/", Component: componentFunc}
 
 	suite.router.AddRoute(route)
 	suite.router.NavigateTo("/", nil)
 
 	currentRoute := suite.router.GetCurrentRoute()
 	assert.Equal(suite.T(), "/", currentRoute.Path)
-	assert.Equal(suite.T(), mockView, currentRoute.Component)
+	assert.NotNil(suite.T(), currentRoute.Component)
 }
 
 // TestGetCurrentRouteEmpty tests getting current route when none is set
@@ -255,7 +256,7 @@ func (suite *RouterTestSuite) TestGetCurrentRouteEmpty() {
 // TestGetQueryParamNotFound tests getting a non-existent query parameter
 func (suite *RouterTestSuite) TestGetQueryParamNotFound() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	param := suite.router.GetQueryParam("nonexistent")
@@ -265,7 +266,7 @@ func (suite *RouterTestSuite) TestGetQueryParamNotFound() {
 // TestGetParamNotFound tests getting a non-existent path parameter
 func (suite *RouterTestSuite) TestGetParamNotFound() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	param := suite.router.GetParam("nonexistent")
@@ -281,7 +282,7 @@ func (suite *RouterTestSuite) TestGetPathEmpty() {
 // TestRefresh tests refreshing the current route
 func (suite *RouterTestSuite) TestRefresh() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	mockView.initCalled = false
@@ -293,7 +294,7 @@ func (suite *RouterTestSuite) TestRefresh() {
 // TestViewMethod tests the View method
 func (suite *RouterTestSuite) TestViewMethod() {
 	mockView := &MockView{name: "home", viewContent: "Home View Content"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	view := suite.router.View()
@@ -309,7 +310,7 @@ func (suite *RouterTestSuite) TestViewMethodNoRoute() {
 // TestInitMethod tests the Init method
 func (suite *RouterTestSuite) TestInitMethod() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	mockView.initCalled = false
@@ -322,7 +323,7 @@ func (suite *RouterTestSuite) TestInitMethod() {
 // TestUpdateMethod tests the Update method
 func (suite *RouterTestSuite) TestUpdateMethod() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/", Component: func(r Router) View { return mockView }})
 	suite.router.NavigateTo("/", nil)
 
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -335,7 +336,7 @@ func (suite *RouterTestSuite) TestUpdateMethod() {
 // TestMatchPatternExactMatch tests exact route matching
 func (suite *RouterTestSuite) TestMatchPatternExactMatch() {
 	mockView := &MockView{name: "home", viewContent: "Home View"}
-	suite.router.AddRoute(Route{Path: "/exact", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/exact", Component: func(r Router) View { return mockView }})
 
 	err := suite.router.NavigateTo("/exact", nil)
 	assert.NoError(suite.T(), err)
@@ -345,7 +346,7 @@ func (suite *RouterTestSuite) TestMatchPatternExactMatch() {
 // TestMatchPatternComplexParams tests complex parameterized routes
 func (suite *RouterTestSuite) TestMatchPatternComplexParams() {
 	mockView := &MockView{name: "complex", viewContent: "Complex View"}
-	suite.router.AddRoute(Route{Path: "/api/:version/users/:userId/posts/:postId", Component: mockView})
+	suite.router.AddRoute(Route{Path: "/api/:version/users/:userId/posts/:postId", Component: func(r Router) View { return mockView }})
 
 	err := suite.router.NavigateTo("/api/v1/users/100/posts/200", nil)
 	assert.NoError(suite.T(), err)
@@ -360,9 +361,9 @@ func (suite *RouterTestSuite) TestNavigationStackIntegrity() {
 	mockView2 := &MockView{name: "view2", viewContent: "View 2"}
 	mockView3 := &MockView{name: "view3", viewContent: "View 3"}
 
-	suite.router.AddRoute(Route{Path: "/view1", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/view2", Component: mockView2})
-	suite.router.AddRoute(Route{Path: "/view3", Component: mockView3})
+	suite.router.AddRoute(Route{Path: "/view1", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/view2", Component: func(r Router) View { return mockView2 }})
+	suite.router.AddRoute(Route{Path: "/view3", Component: func(r Router) View { return mockView3 }})
 
 	// Navigate forward
 	suite.router.NavigateTo("/view1", nil)
@@ -386,8 +387,8 @@ func (suite *RouterTestSuite) TestParameterPersistenceAcrossNavigation() {
 	mockView1 := &MockView{name: "users", viewContent: "Users View"}
 	mockView2 := &MockView{name: "posts", viewContent: "Posts View"}
 
-	suite.router.AddRoute(Route{Path: "/users/:id", Component: mockView1})
-	suite.router.AddRoute(Route{Path: "/posts/:postId", Component: mockView2})
+	suite.router.AddRoute(Route{Path: "/users/:id", Component: func(r Router) View { return mockView1 }})
+	suite.router.AddRoute(Route{Path: "/posts/:postId", Component: func(r Router) View { return mockView2 }})
 
 	queryParams := map[string]string{"filter": "active"}
 	suite.router.NavigateTo("/users/123", queryParams)

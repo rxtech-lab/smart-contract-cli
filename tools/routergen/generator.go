@@ -131,9 +131,9 @@ func GenerateRoutesFile(routes []RouteDefinition, moduleName string) string {
 	for _, route := range routes {
 		// For root package, call NewPage() directly without package prefix
 		if route.PackagePath == appPackagePath {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: NewPage()},\n", route.Path))
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router) view.View { return NewPage(r) }},\n", route.Path))
 		} else {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: %s.NewPage()},\n",
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router) view.View { return %s.NewPage(r) }},\n",
 				route.Path, route.PackageAlias))
 		}
 	}

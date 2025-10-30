@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,14 +33,19 @@ func NewRouter() Router {
 // Init implements Router.
 func (r *RouterImplementation) Init() tea.Cmd {
 	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
-		r.currentComponent = r.currentRoute.route.Component
-		return r.currentRoute.route.Component.Init()
+		r.currentComponent = r.currentRoute.route.Component(r)
+		return r.currentComponent.Init()
 	}
 	return nil
 }
 
 // Update implements Router.
 func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// if ctrl + c, exit the program
+	if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "ctrl+c" {
+		return r, tea.Quit
+	}
+
 	if r.currentComponent != nil {
 		updatedModel, cmd := r.currentComponent.Update(msg)
 		r.currentComponent = updatedModel
@@ -64,6 +70,10 @@ func (r *RouterImplementation) AddRoute(route Route) {
 // SetRoutes implements Router.
 func (r *RouterImplementation) SetRoutes(routes []Route) {
 	r.routes = routes
+	// set the current route to the /
+	if err := r.NavigateTo("/", nil); err != nil {
+		log.Fatalf("failed to set current route to /: %v", err)
+	}
 }
 
 // RemoveRoute implements Router.
@@ -113,7 +123,7 @@ func (r *RouterImplementation) NavigateTo(path string, queryParams map[string]st
 	}
 
 	r.currentRoute = &entry
-	r.currentComponent = route.Component
+	r.currentComponent = route.Component(r)
 	return nil
 }
 
@@ -133,7 +143,7 @@ func (r *RouterImplementation) ReplaceRoute(path string) error {
 
 	// Replace current route without modifying the stack
 	r.currentRoute = &entry
-	r.currentComponent = route.Component
+	r.currentComponent = route.Component(r)
 	return nil
 }
 
@@ -147,7 +157,7 @@ func (r *RouterImplementation) Back() {
 	lastIndex := len(r.navigationStack) - 1
 	r.currentRoute = &r.navigationStack[lastIndex]
 	r.navigationStack = r.navigationStack[:lastIndex]
-	r.currentComponent = r.currentRoute.route.Component
+	r.currentComponent = r.currentRoute.route.Component(r)
 }
 
 // CanGoBack implements Router.
@@ -182,8 +192,8 @@ func (r *RouterImplementation) GetPath() string {
 // Refresh implements Router.
 func (r *RouterImplementation) Refresh() {
 	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
-		r.currentComponent = r.currentRoute.route.Component
-		r.currentRoute.route.Component.Init()
+		r.currentComponent = r.currentRoute.route.Component(r)
+		r.currentComponent.Init()
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 
 type Model struct{}
 
-func NewPage() view.View {
+func NewPage(router view.Router) view.View {
 	return Model{}
 }
 

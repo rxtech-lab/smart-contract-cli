@@ -5,10 +5,12 @@ import (
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
 
-type Model struct{}
+type Model struct {
+	router view.Router
+}
 
-func NewPage() view.View {
-	return Model{}
+func NewPage(router view.Router) view.View {
+	return Model{router: router}
 }
 
 func (m Model) Init() tea.Cmd {

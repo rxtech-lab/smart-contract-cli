@@ -166,6 +166,43 @@ issues:
       linters:
         - stylecheck
 
+    # Exclude generated files from all linters
+    - path: _gen\.go
+      linters:
+        - gofmt
+        - goimports
+        - revive
+        - stylecheck
+        - godot
+        - misspell
+        - whitespace
+        - unconvert
+        - unparam
+        - wastedassign
+        - predeclared
+        - varnamelen
+        - errcheck
+        - gosimple
+        - govet
+        - ineffassign
+        - staticcheck
+        - unused
+        - gocyclo
+        - gocognit
+        - cyclop
+        - nestif
+        - bodyclose
+        - noctx
+        - rowserrcheck
+        - sqlclosecheck
+        - gosec
+        - prealloc
+        - errname
+        - errorlint
+        - wrapcheck
+        - depguard
+        - gomodguard
+
   max-issues-per-linter: 0
   max-same-issues: 0
 
