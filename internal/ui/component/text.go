@@ -275,7 +275,7 @@ func (t *Text) BorderBackground(color lipgloss.Color) *Text {
 
 // Primary applies a primary style (bold and colored).
 func (t *Text) Primary() *Text {
-	return t.Bold(true).Foreground(lipgloss.Color("205"))
+	return t.Bold(true).Foreground(lipgloss.Color("81"))
 }
 
 // Secondary applies a secondary style (faint).

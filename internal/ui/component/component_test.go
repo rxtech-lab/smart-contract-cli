@@ -173,9 +173,9 @@ func (s *ComponentTestSuite) TestDividerLine() {
 // Test List
 func (s *ComponentTestSuite) TestList() {
 	items := []ListItem{
-		Item("Item 1", "1"),
-		Item("Item 2", "2"),
-		Item("Item 3", "3"),
+		Item("Item 1", "1", "Description 1"),
+		Item("Item 2", "2", "Description 2"),
+		Item("Item 3", "3", "Description 3"),
 	}
 
 	list := NewList(items).Selected("2")
@@ -193,7 +193,7 @@ func (s *ComponentTestSuite) TestListEmpty() {
 
 func (s *ComponentTestSuite) TestListCustomPrefix() {
 	items := []ListItem{
-		Item("Item 1", "1"),
+		Item("Item 1", "1", "Description 1"),
 	}
 
 	list := NewList(items).
@@ -212,6 +212,101 @@ func (s *ComponentTestSuite) TestStringList() {
 	s.Contains(rendered, "A")
 	s.Contains(rendered, "B")
 	s.Contains(rendered, "C")
+}
+
+func (s *ComponentTestSuite) TestListWithDescription() {
+	items := []ListItem{
+		Item("Item 1", "1", "Description 1"),
+		Item("Item 2", "2", "Description 2"),
+		Item("Item 3", "3", "Description 3"),
+	}
+
+	list := NewList(items).
+		Selected("2").
+		ShowDescription(true)
+
+	rendered := list.Render()
+
+	// Should contain the selected item
+	s.Contains(rendered, "Item 2")
+	// Should contain the description of the selected item
+	s.Contains(rendered, "Description 2")
+	// Should not contain descriptions of unselected items
+	s.NotContains(rendered, "Description 1")
+	s.NotContains(rendered, "Description 3")
+}
+
+func (s *ComponentTestSuite) TestListWithDescriptionDisabled() {
+	items := []ListItem{
+		Item("Item 1", "1", "Description 1"),
+		Item("Item 2", "2", "Description 2"),
+	}
+
+	list := NewList(items).
+		Selected("1").
+		ShowDescription(false) // Explicitly disabled
+
+	rendered := list.Render()
+
+	// Should contain items
+	s.Contains(rendered, "Item 1")
+	s.Contains(rendered, "Item 2")
+	// Should not contain any descriptions
+	s.NotContains(rendered, "Description 1")
+	s.NotContains(rendered, "Description 2")
+}
+
+func (s *ComponentTestSuite) TestListWithEmptyDescription() {
+	items := []ListItem{
+		Item("Item 1", "1", ""), // Empty description
+		Item("Item 2", "2", "Description 2"),
+	}
+
+	list := NewList(items).
+		Selected("1").
+		ShowDescription(true)
+
+	rendered := list.Render()
+
+	// Should handle empty description gracefully
+	s.Contains(rendered, "Item 1")
+	s.NotContains(rendered, "Description 2")
+}
+
+func (s *ComponentTestSuite) TestListDescriptionSpacing() {
+	items := []ListItem{
+		Item("Item 1", "1", "Description 1"),
+	}
+
+	list := NewList(items).
+		Selected("1").
+		ShowDescription(true).
+		DescriptionSpacing(2)
+
+	rendered := list.Render()
+
+	// Should contain both item and description
+	s.Contains(rendered, "Item 1")
+	s.Contains(rendered, "Description 1")
+	// Check that there's spacing (multiple newlines)
+	s.Contains(rendered, "\n")
+}
+
+func (s *ComponentTestSuite) TestListDescriptionStyle() {
+	items := []ListItem{
+		Item("Item 1", "1", "Description 1"),
+	}
+
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	list := NewList(items).
+		Selected("1").
+		ShowDescription(true).
+		DescriptionStyle(style)
+
+	rendered := list.Render()
+
+	// Should contain the description
+	s.Contains(rendered, "Description 1")
 }
 
 func (s *ComponentTestSuite) TestNumberedList() {

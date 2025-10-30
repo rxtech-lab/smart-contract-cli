@@ -80,7 +80,7 @@ func (m Model) View() string {
 	// Convert options to ListItems
 	items := make([]component.ListItem, len(options))
 	for i, opt := range options {
-		items[i] = component.Item(opt.Label, opt.Route)
+		items[i] = component.Item(opt.Label, opt.Route, "")
 	}
 
 	return component.VStackC(

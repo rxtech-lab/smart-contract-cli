@@ -22,6 +22,7 @@ type RouterImplementation struct {
 	currentRoute     *routeEntry
 	navigationStack  []routeEntry
 	currentComponent View
+	pendingCmd       tea.Cmd // Command to be returned from Update after navigation
 }
 
 func NewRouter() Router {
@@ -34,7 +35,11 @@ func NewRouter() Router {
 // Init implements Router.
 func (r *RouterImplementation) Init() tea.Cmd {
 	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
-		r.currentComponent = r.currentRoute.route.Component(r)
+		// Only create a new component if one doesn't exist
+		// This preserves components created by NavigateTo before Init
+		if r.currentComponent == nil {
+			r.currentComponent = r.currentRoute.route.Component(r)
+		}
 		return r.currentComponent.Init()
 	}
 	return nil
@@ -47,14 +52,30 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return r, tea.Quit
 	}
 
-	if r.currentComponent != nil {
-		updatedModel, cmd := r.currentComponent.Update(msg)
+	if r.currentComponent == nil {
+		return r, nil
+	}
+
+	// Store the current component before update to detect navigation
+	componentBeforeUpdate := r.currentComponent
+
+	updatedModel, cmd := r.currentComponent.Update(msg)
+
+	// Check if navigation occurred (which might have set a pendingCmd)
+	if r.pendingCmd != nil {
+		pendingCmd := r.pendingCmd
+		r.pendingCmd = nil
+		return r, pendingCmd
+	}
+
+	// Only update currentComponent if navigation didn't occur
+	// (navigation changes currentComponent, so we shouldn't overwrite it)
+	if r.currentComponent == componentBeforeUpdate {
 		if view, ok := updatedModel.(View); ok {
 			r.currentComponent = view
 		}
-		return r, cmd
 	}
-	return r, nil
+	return r, cmd
 }
 
 // View implements Router.
@@ -154,6 +175,10 @@ func (r *RouterImplementation) NavigateTo(path string, queryParams map[string]st
 
 	r.currentRoute = &entry
 	r.currentComponent = route.Component(r)
+	// Initialize the new component and store the command
+	if r.currentComponent != nil {
+		r.pendingCmd = r.currentComponent.Init()
+	}
 	return nil
 }
 
@@ -174,12 +199,24 @@ func (r *RouterImplementation) ReplaceRoute(path string) error {
 	// Replace current route without modifying the stack
 	r.currentRoute = &entry
 	r.currentComponent = route.Component(r)
+	// Initialize the new component and store the command
+	if r.currentComponent != nil {
+		r.pendingCmd = r.currentComponent.Init()
+	}
 	return nil
 }
 
 // Back implements Router.
 func (r *RouterImplementation) Back() {
 	if len(r.navigationStack) == 0 {
+		// If navigation stack is empty, try to navigate to root route
+		if r.currentRoute != nil && r.currentRoute.fullPath != "/" {
+			// Try to navigate to root without adding to stack
+			// If this fails, we simply stay on the current route
+			if err := r.ReplaceRoute("/"); err != nil {
+				log.Printf("failed to navigate to root route: %v", err)
+			}
+		}
 		return
 	}
 
@@ -188,6 +225,10 @@ func (r *RouterImplementation) Back() {
 	r.currentRoute = &r.navigationStack[lastIndex]
 	r.navigationStack = r.navigationStack[:lastIndex]
 	r.currentComponent = r.currentRoute.route.Component(r)
+	// Initialize the component after going back and store the command
+	if r.currentComponent != nil {
+		r.pendingCmd = r.currentComponent.Init()
+	}
 }
 
 // CanGoBack implements Router.

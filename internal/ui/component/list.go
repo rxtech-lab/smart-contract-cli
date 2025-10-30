@@ -12,43 +12,53 @@ type ListItem interface {
 	GetLabel() string
 	// GetValue returns the value associated with the item
 	GetValue() string
+	// GetDescription returns the description for the item
+	GetDescription() string
 }
 
 // SimpleItem is a basic implementation of ListItem.
 type SimpleItem struct {
-	Label string
-	Value string
+	Label       string
+	Value       string
+	Description string
 }
 
-func (s SimpleItem) GetLabel() string { return s.Label }
-func (s SimpleItem) GetValue() string { return s.Value }
+func (s SimpleItem) GetLabel() string       { return s.Label }
+func (s SimpleItem) GetValue() string       { return s.Value }
+func (s SimpleItem) GetDescription() string { return s.Description }
 
 // Item creates a simple list item.
-func Item(label, value string) ListItem {
-	return SimpleItem{Label: label, Value: value}
+func Item(label, value, description string) ListItem {
+	return SimpleItem{Label: label, Value: value, Description: description}
 }
 
 // List is a component that renders a list of selectable items.
 type List struct {
-	items            []ListItem
-	selectedValue    string
-	renderItem       func(item ListItem, isSelected bool) Component
-	selectedPrefix   string
-	unselectedPrefix string
-	spacing          int
-	style            lipgloss.Style
+	items              []ListItem
+	selectedValue      string
+	renderItem         func(item ListItem, isSelected bool) Component
+	selectedPrefix     string
+	unselectedPrefix   string
+	spacing            int
+	style              lipgloss.Style
+	showDescription    bool
+	descriptionStyle   lipgloss.Style
+	descriptionSpacing int
 }
 
 // NewList creates a new list component.
 func NewList(items []ListItem) *List {
 	return &List{
-		items:            items,
-		selectedValue:    "",
-		renderItem:       nil,
-		selectedPrefix:   "> ",
-		unselectedPrefix: "  ",
-		spacing:          0,
-		style:            lipgloss.NewStyle(),
+		items:              items,
+		selectedValue:      "",
+		renderItem:         nil,
+		selectedPrefix:     "> ",
+		unselectedPrefix:   "  ",
+		spacing:            0,
+		style:              lipgloss.NewStyle(),
+		showDescription:    false,
+		descriptionStyle:   lipgloss.NewStyle().Faint(true),
+		descriptionSpacing: 0,
 	}
 }
 
@@ -94,6 +104,24 @@ func (l *List) WithStyle(style lipgloss.Style) *List {
 	return l
 }
 
+// ShowDescription enables rendering descriptions for selected items.
+func (l *List) ShowDescription(show bool) *List {
+	l.showDescription = show
+	return l
+}
+
+// DescriptionStyle sets the style for description text.
+func (l *List) DescriptionStyle(style lipgloss.Style) *List {
+	l.descriptionStyle = style
+	return l
+}
+
+// DescriptionSpacing sets the spacing between label and description.
+func (l *List) DescriptionSpacing(spacing int) *List {
+	l.descriptionSpacing = spacing
+	return l
+}
+
 // Render renders the list.
 func (l *List) Render() string {
 	if len(l.items) == 0 {
@@ -104,20 +132,7 @@ func (l *List) Render() string {
 
 	for _, item := range l.items {
 		isSelected := item.GetValue() == l.selectedValue
-
-		var itemComponent Component
-		if l.renderItem != nil {
-			// Use custom renderer
-			itemComponent = l.renderItem(item, isSelected)
-		} else {
-			// Use default renderer
-			prefix := l.unselectedPrefix
-			if isSelected {
-				prefix = l.selectedPrefix
-			}
-			itemComponent = T(prefix + item.GetLabel())
-		}
-
+		itemComponent := l.renderListItem(item, isSelected)
 		components = append(components, itemComponent)
 	}
 
@@ -126,12 +141,64 @@ func (l *List) Render() string {
 	return l.style.Render(result)
 }
 
+// renderListItem renders a single list item.
+func (l *List) renderListItem(item ListItem, isSelected bool) Component {
+	var itemComponent Component
+	if l.renderItem != nil {
+		itemComponent = l.renderItem(item, isSelected)
+	} else {
+		itemComponent = l.renderDefaultItem(item, isSelected)
+	}
+
+	if l.showDescription && isSelected {
+		itemComponent = l.addDescription(itemComponent, item)
+	}
+
+	return itemComponent
+}
+
+// renderDefaultItem renders an item using the default renderer.
+func (l *List) renderDefaultItem(item ListItem, isSelected bool) Component {
+	prefix := l.unselectedPrefix
+	if isSelected {
+		prefix = l.selectedPrefix
+	}
+	return T(prefix + item.GetLabel())
+}
+
+// addDescription adds a description below the item component.
+func (l *List) addDescription(itemComponent Component, item ListItem) Component {
+	description := item.GetDescription()
+	if description == "" {
+		return itemComponent
+	}
+
+	descComponent := NewText(description).WithStyle(l.descriptionStyle)
+	prefixPadding := l.createPrefixPadding()
+	descWithPadding := HStackC(T(prefixPadding), descComponent)
+
+	return NewVStack(itemComponent, descWithPadding).
+		Spacing(l.descriptionSpacing)
+}
+
+// createPrefixPadding creates padding equal to the selected prefix length.
+func (l *List) createPrefixPadding() string {
+	if l.selectedPrefix == "" {
+		return ""
+	}
+	prefixPadding := ""
+	for i := 0; i < len(l.selectedPrefix); i++ {
+		prefixPadding += " "
+	}
+	return prefixPadding
+}
+
 // StringList creates a list from a slice of strings.
 // Each string becomes both the label and value.
 func StringList(items []string) *List {
 	listItems := make([]ListItem, len(items))
 	for i, item := range items {
-		listItems[i] = SimpleItem{Label: item, Value: item}
+		listItems[i] = SimpleItem{Label: item, Value: item, Description: ""}
 	}
 	return NewList(listItems)
 }
