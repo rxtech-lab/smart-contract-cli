@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // routeEntry represents a route in the navigation stack.
@@ -20,7 +21,7 @@ type RouterImplementation struct {
 	routes           []Route
 	currentRoute     *routeEntry
 	navigationStack  []routeEntry
-	currentComponent tea.Model
+	currentComponent View
 }
 
 func NewRouter() Router {
@@ -48,7 +49,7 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if r.currentComponent != nil {
 		updatedModel, cmd := r.currentComponent.Update(msg)
-		r.currentComponent = updatedModel
+		r.currentComponent = updatedModel.(View)
 		return r, cmd
 	}
 	return r, nil
@@ -57,7 +58,31 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View implements Router.
 func (r *RouterImplementation) View() string {
 	if r.currentComponent != nil {
-		return r.currentComponent.View()
+		// Create a blue box style with full width
+		boxStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")). // Blue color
+			Padding(1, 2).
+			Width(lipgloss.Width(r.currentComponent.View()) + 4). // Add padding to width
+			MaxWidth(120) // Set a reasonable max width
+
+		// Get the component view
+		componentView := boxStyle.Render(r.currentComponent.View())
+
+		// Create helper text style
+		helpStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")). // Gray color
+			Italic(true).
+			MarginTop(1)
+
+		// Combine component help and exit instruction
+		componentHelp := r.currentComponent.Help()
+		helpText := "Ctrl + c to exit"
+		if componentHelp != "" {
+			helpText = componentHelp + " • " + helpText
+		}
+
+		return componentView + "\n" + helpStyle.Render(helpText)
 	}
 	return "No route selected"
 }

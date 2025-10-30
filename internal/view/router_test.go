@@ -28,6 +28,10 @@ func (m *MockView) View() string {
 	return m.viewContent
 }
 
+func (m *MockView) Help() string {
+	return ""
+}
+
 // RouterTestSuite is the test suite for Router
 type RouterTestSuite struct {
 	suite.Suite
@@ -298,7 +302,9 @@ func (suite *RouterTestSuite) TestViewMethod() {
 	suite.router.NavigateTo("/", nil)
 
 	view := suite.router.View()
-	assert.Equal(suite.T(), "Home View Content", view)
+	// The view should contain the content wrapped in a box with helper text
+	assert.Contains(suite.T(), view, "Home View Content")
+	assert.Contains(suite.T(), view, "Ctrl + c to exit")
 }
 
 // TestViewMethodNoRoute tests View when no route is active

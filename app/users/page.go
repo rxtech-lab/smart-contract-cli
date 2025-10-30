@@ -19,6 +19,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) Help() string {
+	return "Use arrow keys to navigate and enter to select"
+}
+
 func (m Model) View() string {
 	return "Users List Page"
 }

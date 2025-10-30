@@ -6,6 +6,7 @@ type View interface {
 	View() string
 	Init() tea.Cmd
 	Update(msg tea.Msg) (tea.Model, tea.Cmd)
+	Help() string
 }
 
 type Router interface {
