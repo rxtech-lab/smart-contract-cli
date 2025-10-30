@@ -1,8 +1,16 @@
-.PHONY: e2e-network e2e-test e2e-test-stop lint
+.PHONY: e2e-network e2e-test e2e-test-stop lint generate-routes
 
 build:
 	@echo "Building smart-contract-cli..."
 	@go build -o smart-contract-cli ./main.go
+
+generate-routes:
+	@echo "Building routegen tool..."
+	@mkdir -p bin
+	@go build -o bin/routegen ./tools/routergen/*.go
+	@echo "Generating routes from app folder..."
+	@./bin/routegen -dir ./app -module-root .
+	@echo "Routes generated successfully!"
 
 e2e-network:
 	@echo "Starting Anvil network..."

@@ -1,0 +1,240 @@
+package view
+
+import (
+	"fmt"
+	"regexp"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// routeEntry represents a route in the navigation stack.
+type routeEntry struct {
+	route       Route
+	queryParams map[string]string
+	pathParams  map[string]string
+	fullPath    string
+}
+
+type RouterImplementation struct {
+	routes           []Route
+	currentRoute     *routeEntry
+	navigationStack  []routeEntry
+	currentComponent tea.Model
+}
+
+func NewRouter() Router {
+	return &RouterImplementation{
+		routes:          []Route{},
+		navigationStack: []routeEntry{},
+	}
+}
+
+// Init implements Router.
+func (r *RouterImplementation) Init() tea.Cmd {
+	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
+		r.currentComponent = r.currentRoute.route.Component
+		return r.currentRoute.route.Component.Init()
+	}
+	return nil
+}
+
+// Update implements Router.
+func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if r.currentComponent != nil {
+		updatedModel, cmd := r.currentComponent.Update(msg)
+		r.currentComponent = updatedModel
+		return r, cmd
+	}
+	return r, nil
+}
+
+// View implements Router.
+func (r *RouterImplementation) View() string {
+	if r.currentComponent != nil {
+		return r.currentComponent.View()
+	}
+	return "No route selected"
+}
+
+// AddRoute implements Router.
+func (r *RouterImplementation) AddRoute(route Route) {
+	r.routes = append(r.routes, route)
+}
+
+// SetRoutes implements Router.
+func (r *RouterImplementation) SetRoutes(routes []Route) {
+	r.routes = routes
+}
+
+// RemoveRoute implements Router.
+func (r *RouterImplementation) RemoveRoute(path string) {
+	for i, route := range r.routes {
+		if route.Path == path {
+			r.routes = append(r.routes[:i], r.routes[i+1:]...)
+			return
+		}
+	}
+}
+
+// GetCurrentRoute implements Router.
+func (r *RouterImplementation) GetCurrentRoute() Route {
+	if r.currentRoute != nil {
+		return r.currentRoute.route
+	}
+	return Route{}
+}
+
+// GetRoutes implements Router.
+func (r *RouterImplementation) GetRoutes() []Route {
+	return r.routes
+}
+
+// NavigateTo implements Router.
+func (r *RouterImplementation) NavigateTo(path string, queryParams map[string]string) error {
+	route, pathParams, err := r.matchRoute(path)
+	if err != nil {
+		return err
+	}
+
+	if queryParams == nil {
+		queryParams = make(map[string]string)
+	}
+
+	entry := routeEntry{
+		route:       *route,
+		queryParams: queryParams,
+		pathParams:  pathParams,
+		fullPath:    path,
+	}
+
+	// Push current route to stack if it exists
+	if r.currentRoute != nil {
+		r.navigationStack = append(r.navigationStack, *r.currentRoute)
+	}
+
+	r.currentRoute = &entry
+	r.currentComponent = route.Component
+	return nil
+}
+
+// ReplaceRoute implements Router.
+func (r *RouterImplementation) ReplaceRoute(path string) error {
+	route, pathParams, err := r.matchRoute(path)
+	if err != nil {
+		return err
+	}
+
+	entry := routeEntry{
+		route:       *route,
+		queryParams: make(map[string]string),
+		pathParams:  pathParams,
+		fullPath:    path,
+	}
+
+	// Replace current route without modifying the stack
+	r.currentRoute = &entry
+	r.currentComponent = route.Component
+	return nil
+}
+
+// Back implements Router.
+func (r *RouterImplementation) Back() {
+	if len(r.navigationStack) == 0 {
+		return
+	}
+
+	// Pop the last entry from the stack
+	lastIndex := len(r.navigationStack) - 1
+	r.currentRoute = &r.navigationStack[lastIndex]
+	r.navigationStack = r.navigationStack[:lastIndex]
+	r.currentComponent = r.currentRoute.route.Component
+}
+
+// CanGoBack implements Router.
+func (r *RouterImplementation) CanGoBack() bool {
+	return len(r.navigationStack) > 0
+}
+
+// GetQueryParam implements Router.
+func (r *RouterImplementation) GetQueryParam(key string) string {
+	if r.currentRoute == nil {
+		return ""
+	}
+	return r.currentRoute.queryParams[key]
+}
+
+// GetParam implements Router.
+func (r *RouterImplementation) GetParam(key string) string {
+	if r.currentRoute == nil {
+		return ""
+	}
+	return r.currentRoute.pathParams[key]
+}
+
+// GetPath implements Router.
+func (r *RouterImplementation) GetPath() string {
+	if r.currentRoute == nil {
+		return ""
+	}
+	return r.currentRoute.fullPath
+}
+
+// Refresh implements Router.
+func (r *RouterImplementation) Refresh() {
+	if r.currentRoute != nil && r.currentRoute.route.Component != nil {
+		r.currentComponent = r.currentRoute.route.Component
+		r.currentRoute.route.Component.Init()
+	}
+}
+
+// matchRoute finds a matching route and extracts path parameters.
+func (r *RouterImplementation) matchRoute(path string) (*Route, map[string]string, error) {
+	for _, route := range r.routes {
+		if pathParams, matched := r.matchPattern(route.Path, path); matched {
+			return &route, pathParams, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no route found for path: %s", path)
+}
+
+// matchPattern matches a route pattern against a path and extracts parameters.
+// Supports patterns like "/users/:id" or "/posts/:postId/comments/:commentId".
+func (r *RouterImplementation) matchPattern(pattern, path string) (map[string]string, bool) {
+	// Exact match
+	if pattern == path {
+		return make(map[string]string), true
+	}
+
+	// Build regex pattern from route pattern
+	paramNames := []string{}
+	regexPattern := "^" + pattern + "$"
+
+	// Find all :param patterns
+	paramRegex := regexp.MustCompile(`:(\w+)`)
+	matches := paramRegex.FindAllStringSubmatch(pattern, -1)
+
+	for _, match := range matches {
+		paramNames = append(paramNames, match[1])
+	}
+
+	// Replace :param with capture groups
+	regexPattern = paramRegex.ReplaceAllString(regexPattern, `([^/]+)`)
+
+	// Compile and match
+	re := regexp.MustCompile(regexPattern)
+	pathMatches := re.FindStringSubmatch(path)
+
+	if pathMatches == nil {
+		return nil, false
+	}
+
+	// Extract parameters
+	params := make(map[string]string)
+	for i, name := range paramNames {
+		if i+1 < len(pathMatches) {
+			params[name] = pathMatches[i+1]
+		}
+	}
+
+	return params, true
+}
