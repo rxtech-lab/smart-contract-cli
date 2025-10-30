@@ -8,19 +8,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// HomeState represents the state of the home view
+// HomeState represents the state of the home view.
 type HomeState struct {
 	selectedOption int
 	options        []string
 	hoveredOption  int
 }
 
-// HomeModel is the Bubble Tea model for the home view
+// HomeModel is the Bubble Tea model for the home view.
 type HomeModel struct {
 	state HomeState
 }
 
-// NewHomeModel creates a new home view model with two options
+// NewHomeModel creates a new home view model with two options.
 func NewHomeModel() View {
 	return HomeModel{
 		state: HomeState{
@@ -34,12 +34,12 @@ func NewHomeModel() View {
 	}
 }
 
-// Init initializes the home view
+// Init initializes the home view.
 func (m HomeModel) Init() tea.Cmd {
 	return nil
 }
 
-// Update handles messages and updates the model state
+// Update handles messages and updates the model state.
 func (m HomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -105,12 +105,12 @@ func (m HomeModel) View() string {
 	return result
 }
 
-// GetSelectedOption returns the currently selected option index
+// GetSelectedOption returns the currently selected option index.
 func (m HomeModel) GetSelectedOption() int {
 	return m.state.selectedOption
 }
 
-// GetState returns the current state
+// GetState returns the current state.
 func (m HomeModel) GetState() HomeState {
 	return m.state
 }

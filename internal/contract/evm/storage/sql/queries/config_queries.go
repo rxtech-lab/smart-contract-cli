@@ -59,8 +59,8 @@ func (q *ConfigQueries) List(page int64, pageSize int64) (*types.Pagination[mode
 	}, nil
 }
 
-// GetById retrieves a config by its ID with preloaded relationships.
-func (q *ConfigQueries) GetById(id uint) (*models.EVMConfig, error) {
+// GetByID retrieves a config by its ID with preloaded relationships.
+func (q *ConfigQueries) GetByID(id uint) (*models.EVMConfig, error) {
 	var config models.EVMConfig
 	if err := q.db.Preload("Endpoint").
 		Preload("SelectedEVMContract").
@@ -122,4 +122,39 @@ func (q *ConfigQueries) Count() (int64, error) {
 		return 0, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count configs")
 	}
 	return count, nil
+}
+
+// Search searches for configs by related endpoint name.
+func (q *ConfigQueries) Search(query string) (*types.Pagination[models.EVMConfig], error) {
+	var items []models.EVMConfig
+	var totalItems int64
+
+	searchPattern := "%" + query + "%"
+
+	// Count total matching items
+	if err := q.db.Model(&models.EVMConfig{}).
+		Joins("LEFT JOIN evm_endpoints ON evm_configs.endpoint_id = evm_endpoints.id").
+		Where("evm_endpoints.name LIKE ?", searchPattern).
+		Count(&totalItems).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count configs")
+	}
+
+	// Retrieve all matching items with preloaded relationships
+	if err := q.db.Preload("Endpoint").
+		Preload("SelectedEVMContract").
+		Preload("SelectedEVMAbi").
+		Joins("LEFT JOIN evm_endpoints ON evm_configs.endpoint_id = evm_endpoints.id").
+		Where("evm_endpoints.name LIKE ?", searchPattern).
+		Order("evm_configs.created_at DESC").
+		Find(&items).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to search configs")
+	}
+
+	return &types.Pagination[models.EVMConfig]{
+		Items:       items,
+		TotalPages:  1,
+		CurrentPage: 1,
+		PageSize:    totalItems,
+		TotalItems:  totalItems,
+	}, nil
 }

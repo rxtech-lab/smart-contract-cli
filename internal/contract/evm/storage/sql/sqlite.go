@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,161 +13,251 @@ import (
 )
 
 type SQLiteStorage struct {
-	db              *gorm.DB
-	abiQueries      *queries.AbiQueries
+	abiQueries      *queries.ABIQueries
 	endpointQueries *queries.EndpointQueries
 	contractQueries *queries.ContractQueries
 	configQueries   *queries.ConfigQueries
 }
 
-// CountAbis implements Storage.
-func (s *SQLiteStorage) CountAbis() (count int64, err error) {
-	panic("unimplemented")
+// ABI Methods
+
+// CountABIs implements Storage.
+func (s *SQLiteStorage) CountABIs() (count int64, err error) {
+	return s.abiQueries.Count()
 }
 
-// CountConfigs implements Storage.
-func (s *SQLiteStorage) CountConfigs() (count int64, err error) {
-	panic("unimplemented")
+// CreateABI implements Storage.
+func (s *SQLiteStorage) CreateABI(abi models.EvmAbi) (id uint, err error) {
+	if err := s.abiQueries.Create(&abi); err != nil {
+		return 0, err
+	}
+	return abi.ID, nil
 }
 
-// CountContracts implements Storage.
-func (s *SQLiteStorage) CountContracts() (count int64, err error) {
-	panic("unimplemented")
+// DeleteABI implements Storage.
+func (s *SQLiteStorage) DeleteABI(id uint) (err error) {
+	return s.abiQueries.Delete(id)
 }
+
+// GetABIByID implements Storage.
+func (s *SQLiteStorage) GetABIByID(id uint) (abi models.EvmAbi, err error) {
+	result, err := s.abiQueries.GetByID(id)
+	if err != nil {
+		return models.EvmAbi{}, err
+	}
+	return *result, nil
+}
+
+// ListABIs implements Storage.
+func (s *SQLiteStorage) ListABIs(page int64, pageSize int64) (abis types.Pagination[models.EvmAbi], err error) {
+	result, err := s.abiQueries.List(page, pageSize)
+	if err != nil {
+		return types.Pagination[models.EvmAbi]{}, err
+	}
+	return *result, nil
+}
+
+// SearchABIs implements Storage.
+func (s *SQLiteStorage) SearchABIs(query string) (abis types.Pagination[models.EvmAbi], err error) {
+	result, err := s.abiQueries.Search(query)
+	if err != nil {
+		return types.Pagination[models.EvmAbi]{}, err
+	}
+	return *result, nil
+}
+
+// UpdateABI implements Storage.
+func (s *SQLiteStorage) UpdateABI(id uint, abi models.EvmAbi) (err error) {
+	updates := map[string]any{
+		"name": abi.Name,
+		"abi":  abi.Abi,
+	}
+	return s.abiQueries.Update(id, updates)
+}
+
+// Endpoint Methods
 
 // CountEndpoints implements Storage.
 func (s *SQLiteStorage) CountEndpoints() (count int64, err error) {
-	panic("unimplemented")
-}
-
-// CreateAbi implements Storage.
-func (s *SQLiteStorage) CreateAbi(abi models.EvmAbi) (id uint, err error) {
-	panic("unimplemented")
-}
-
-// CreateConfig implements Storage.
-func (s *SQLiteStorage) CreateConfig(config models.EVMConfig) (id uint, err error) {
-	panic("unimplemented")
-}
-
-// CreateContract implements Storage.
-func (s *SQLiteStorage) CreateContract(contract models.EVMContract) (id uint, err error) {
-	panic("unimplemented")
+	return s.endpointQueries.Count()
 }
 
 // CreateEndpoint implements Storage.
 func (s *SQLiteStorage) CreateEndpoint(endpoint models.EVMEndpoint) (id uint, err error) {
-	panic("unimplemented")
-}
-
-// DeleteAbi implements Storage.
-func (s *SQLiteStorage) DeleteAbi(id uint) (err error) {
-	panic("unimplemented")
-}
-
-// DeleteConfig implements Storage.
-func (s *SQLiteStorage) DeleteConfig(id uint) (err error) {
-	panic("unimplemented")
-}
-
-// DeleteContract implements Storage.
-func (s *SQLiteStorage) DeleteContract(id uint) (err error) {
-	panic("unimplemented")
+	if err := s.endpointQueries.Create(&endpoint); err != nil {
+		return 0, err
+	}
+	return endpoint.ID, nil
 }
 
 // DeleteEndpoint implements Storage.
 func (s *SQLiteStorage) DeleteEndpoint(id uint) (err error) {
-	panic("unimplemented")
+	return s.endpointQueries.Delete(id)
 }
 
-// GetAbiById implements Storage.
-func (s *SQLiteStorage) GetAbiById(id uint) (abi models.EvmAbi, err error) {
-	panic("unimplemented")
-}
-
-// GetConfigById implements Storage.
-func (s *SQLiteStorage) GetConfigById(id uint) (config models.EVMConfig, err error) {
-	panic("unimplemented")
-}
-
-// GetContractById implements Storage.
-func (s *SQLiteStorage) GetContractById(id uint) (contract models.EVMContract, err error) {
-	panic("unimplemented")
-}
-
-// GetEndpointById implements Storage.
-func (s *SQLiteStorage) GetEndpointById(id uint) (endpoint models.EVMEndpoint, err error) {
-	panic("unimplemented")
-}
-
-// ListAbis implements Storage.
-func (s *SQLiteStorage) ListAbis(page int64, pageSize int64) (abis types.Pagination[models.EvmAbi], err error) {
-	panic("unimplemented")
-}
-
-// ListConfigs implements Storage.
-func (s *SQLiteStorage) ListConfigs(page int64, pageSize int64) (configs types.Pagination[models.EVMConfig], err error) {
-	panic("unimplemented")
-}
-
-// ListContracts implements Storage.
-func (s *SQLiteStorage) ListContracts(page int64, pageSize int64) (contracts types.Pagination[models.EVMContract], err error) {
-	panic("unimplemented")
+// GetEndpointByID implements Storage.
+func (s *SQLiteStorage) GetEndpointByID(id uint) (endpoint models.EVMEndpoint, err error) {
+	result, err := s.endpointQueries.GetByID(id)
+	if err != nil {
+		return models.EVMEndpoint{}, err
+	}
+	return *result, nil
 }
 
 // ListEndpoints implements Storage.
 func (s *SQLiteStorage) ListEndpoints(page int64, pageSize int64) (endpoints types.Pagination[models.EVMEndpoint], err error) {
-	panic("unimplemented")
-}
-
-// SearchAbis implements Storage.
-func (s *SQLiteStorage) SearchAbis(query string) (abis types.Pagination[models.EvmAbi], err error) {
-	panic("unimplemented")
-}
-
-// SearchConfigs implements Storage.
-func (s *SQLiteStorage) SearchConfigs(query string) (configs types.Pagination[models.EVMConfig], err error) {
-	panic("unimplemented")
-}
-
-// SearchContracts implements Storage.
-func (s *SQLiteStorage) SearchContracts(query string) (contracts types.Pagination[models.EVMContract], err error) {
-	panic("unimplemented")
+	result, err := s.endpointQueries.List(page, pageSize)
+	if err != nil {
+		return types.Pagination[models.EVMEndpoint]{}, err
+	}
+	return *result, nil
 }
 
 // SearchEndpoints implements Storage.
 func (s *SQLiteStorage) SearchEndpoints(query string) (endpoints types.Pagination[models.EVMEndpoint], err error) {
-	panic("unimplemented")
-}
-
-// UpdateAbi implements Storage.
-func (s *SQLiteStorage) UpdateAbi(id uint, abi models.EvmAbi) (err error) {
-	panic("unimplemented")
-}
-
-// UpdateConfig implements Storage.
-func (s *SQLiteStorage) UpdateConfig(id uint, config models.EVMConfig) (err error) {
-	panic("unimplemented")
-}
-
-// UpdateContract implements Storage.
-func (s *SQLiteStorage) UpdateContract(id uint, contract models.EVMContract) (err error) {
-	panic("unimplemented")
+	result, err := s.endpointQueries.Search(query)
+	if err != nil {
+		return types.Pagination[models.EVMEndpoint]{}, err
+	}
+	return *result, nil
 }
 
 // UpdateEndpoint implements Storage.
 func (s *SQLiteStorage) UpdateEndpoint(id uint, endpoint models.EVMEndpoint) (err error) {
-	panic("unimplemented")
+	updates := map[string]any{
+		"name":     endpoint.Name,
+		"url":      endpoint.Url,
+		"chain_id": endpoint.ChainId,
+	}
+	return s.endpointQueries.Update(id, updates)
+}
+
+// Contract Methods
+
+// CountContracts implements Storage.
+func (s *SQLiteStorage) CountContracts() (count int64, err error) {
+	return s.contractQueries.Count()
+}
+
+// CreateContract implements Storage.
+func (s *SQLiteStorage) CreateContract(contract models.EVMContract) (id uint, err error) {
+	if err := s.contractQueries.Create(&contract); err != nil {
+		return 0, err
+	}
+	return contract.ID, nil
+}
+
+// DeleteContract implements Storage.
+func (s *SQLiteStorage) DeleteContract(id uint) (err error) {
+	return s.contractQueries.Delete(id)
+}
+
+// GetContractByID implements Storage.
+func (s *SQLiteStorage) GetContractByID(id uint) (contract models.EVMContract, err error) {
+	result, err := s.contractQueries.GetByID(id)
+	if err != nil {
+		return models.EVMContract{}, err
+	}
+	return *result, nil
+}
+
+// ListContracts implements Storage.
+func (s *SQLiteStorage) ListContracts(page int64, pageSize int64) (contracts types.Pagination[models.EVMContract], err error) {
+	result, err := s.contractQueries.List(page, pageSize)
+	if err != nil {
+		return types.Pagination[models.EVMContract]{}, err
+	}
+	return *result, nil
+}
+
+// SearchContracts implements Storage.
+func (s *SQLiteStorage) SearchContracts(query string) (contracts types.Pagination[models.EVMContract], err error) {
+	result, err := s.contractQueries.Search(query)
+	if err != nil {
+		return types.Pagination[models.EVMContract]{}, err
+	}
+	return *result, nil
+}
+
+// UpdateContract implements Storage.
+func (s *SQLiteStorage) UpdateContract(id uint, contract models.EVMContract) (err error) {
+	updates := map[string]any{
+		"name":          contract.Name,
+		"address":       contract.Address,
+		"abi_id":        contract.AbiId,
+		"status":        contract.Status,
+		"contract_code": contract.ContractCode,
+		"bytecode":      contract.Bytecode,
+		"endpoint_id":   contract.EndpointId,
+	}
+	return s.contractQueries.Update(id, updates)
+}
+
+// Config Methods
+
+// CountConfigs implements Storage.
+func (s *SQLiteStorage) CountConfigs() (count int64, err error) {
+	return s.configQueries.Count()
+}
+
+// CreateConfig implements Storage.
+func (s *SQLiteStorage) CreateConfig(config models.EVMConfig) (id uint, err error) {
+	if err := s.configQueries.Create(&config); err != nil {
+		return 0, err
+	}
+	return config.ID, nil
+}
+
+// DeleteConfig implements Storage.
+func (s *SQLiteStorage) DeleteConfig(id uint) (err error) {
+	return s.configQueries.Delete(id)
+}
+
+// GetConfigByID implements Storage.
+func (s *SQLiteStorage) GetConfigByID(id uint) (config models.EVMConfig, err error) {
+	result, err := s.configQueries.GetByID(id)
+	if err != nil {
+		return models.EVMConfig{}, err
+	}
+	return *result, nil
+}
+
+// ListConfigs implements Storage.
+func (s *SQLiteStorage) ListConfigs(page int64, pageSize int64) (configs types.Pagination[models.EVMConfig], err error) {
+	result, err := s.configQueries.List(page, pageSize)
+	if err != nil {
+		return types.Pagination[models.EVMConfig]{}, err
+	}
+	return *result, nil
+}
+
+// SearchConfigs implements Storage.
+func (s *SQLiteStorage) SearchConfigs(query string) (configs types.Pagination[models.EVMConfig], err error) {
+	result, err := s.configQueries.Search(query)
+	if err != nil {
+		return types.Pagination[models.EVMConfig]{}, err
+	}
+	return *result, nil
+}
+
+// UpdateConfig implements Storage.
+func (s *SQLiteStorage) UpdateConfig(id uint, config models.EVMConfig) (err error) {
+	updates := map[string]any{
+		"endpoint_id":              config.EndpointId,
+		"selected_evm_contract_id": config.SelectedEVMContractId,
+		"selected_evm_abi_id":      config.SelectedEVMAbiId,
+	}
+	return s.configQueries.Update(id, updates)
 }
 
 // NewSQLiteDB creates a new SQLite database connection.
-// If dbPath is empty, it defaults to $HOME/smart-contract-cli.db
+// If dbPath is empty, it defaults to $HOME/smart-contract-cli.db.
 func NewSQLiteDB(dbPath string) (Storage, error) {
 	// Use default path if none provided
 	if dbPath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get user home directory: %w", err)
 		}
 		dbPath = filepath.Join(homeDir, "smart-contract-cli.db")
 	}
@@ -174,20 +265,30 @@ func NewSQLiteDB(dbPath string) (Storage, error) {
 	// Ensure the directory exists
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	// Open database connection
-	db, err := sql.Open("sqlite3", dbPath)
+	// Open database connection with GORM
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Verify connection
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, err
+	// Auto-migrate the schema
+	if err := db.AutoMigrate(
+		&models.EvmAbi{},
+		&models.EVMEndpoint{},
+		&models.EVMContract{},
+		&models.EVMConfig{},
+	); err != nil {
+		return nil, fmt.Errorf("failed to migrate database schema: %w", err)
 	}
 
-	return &SQLiteStorage{db: db}, nil
+	// Initialize query helpers
+	return &SQLiteStorage{
+		abiQueries:      queries.NewABIQueries(db),
+		endpointQueries: queries.NewEndpointQueries(db),
+		contractQueries: queries.NewContractQueries(db),
+		configQueries:   queries.NewConfigQueries(db),
+	}, nil
 }

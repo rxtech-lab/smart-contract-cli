@@ -54,8 +54,8 @@ func (q *EndpointQueries) List(page int64, pageSize int64) (*types.Pagination[mo
 	}, nil
 }
 
-// GetById retrieves an endpoint by its ID.
-func (q *EndpointQueries) GetById(id uint) (*models.EVMEndpoint, error) {
+// GetByID retrieves an endpoint by its ID.
+func (q *EndpointQueries) GetByID(id uint) (*models.EVMEndpoint, error) {
 	var endpoint models.EVMEndpoint
 	if err := q.db.First(&endpoint, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -114,4 +114,35 @@ func (q *EndpointQueries) Count() (int64, error) {
 		return 0, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count endpoints")
 	}
 	return count, nil
+}
+
+// Search searches for endpoints by name, URL, or chain ID.
+func (q *EndpointQueries) Search(query string) (*types.Pagination[models.EVMEndpoint], error) {
+	var items []models.EVMEndpoint
+	var totalItems int64
+
+	searchPattern := "%" + query + "%"
+
+	// Count total matching items
+	if err := q.db.Model(&models.EVMEndpoint{}).
+		Where("name LIKE ? OR url LIKE ? OR chain_id LIKE ?", searchPattern, searchPattern, searchPattern).
+		Count(&totalItems).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count endpoints")
+	}
+
+	// Retrieve all matching items
+	if err := q.db.
+		Where("name LIKE ? OR url LIKE ? OR chain_id LIKE ?", searchPattern, searchPattern, searchPattern).
+		Order("created_at DESC").
+		Find(&items).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to search endpoints")
+	}
+
+	return &types.Pagination[models.EVMEndpoint]{
+		Items:       items,
+		TotalPages:  1,
+		CurrentPage: 1,
+		PageSize:    totalItems,
+		TotalItems:  totalItems,
+	}, nil
 }

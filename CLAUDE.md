@@ -43,8 +43,8 @@ make e2e-test-stop
 ### Building
 
 ```bash
-# Build the CLI
-go build -o smart-contract-cli
+# Build the CLI (ALWAYS use this command)
+make build
 
 # Install dependencies
 go mod download

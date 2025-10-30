@@ -57,8 +57,8 @@ func (q *ContractQueries) List(page int64, pageSize int64) (*types.Pagination[mo
 	}, nil
 }
 
-// GetById retrieves a contract by its ID with preloaded relationships.
-func (q *ContractQueries) GetById(id uint) (*models.EVMContract, error) {
+// GetByID retrieves a contract by its ID with preloaded relationships.
+func (q *ContractQueries) GetByID(id uint) (*models.EVMContract, error) {
 	var contract models.EVMContract
 	if err := q.db.Preload("Abi").Preload("Endpoint").First(&contract, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -117,4 +117,35 @@ func (q *ContractQueries) Count() (int64, error) {
 		return 0, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count contracts")
 	}
 	return count, nil
+}
+
+// Search searches for contracts by name or address.
+func (q *ContractQueries) Search(query string) (*types.Pagination[models.EVMContract], error) {
+	var items []models.EVMContract
+	var totalItems int64
+
+	searchPattern := "%" + query + "%"
+
+	// Count total matching items
+	if err := q.db.Model(&models.EVMContract{}).
+		Where("name LIKE ? OR address LIKE ?", searchPattern, searchPattern).
+		Count(&totalItems).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count contracts")
+	}
+
+	// Retrieve all matching items with preloaded relationships
+	if err := q.db.Preload("Abi").Preload("Endpoint").
+		Where("name LIKE ? OR address LIKE ?", searchPattern, searchPattern).
+		Order("created_at DESC").
+		Find(&items).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to search contracts")
+	}
+
+	return &types.Pagination[models.EVMContract]{
+		Items:       items,
+		TotalPages:  1,
+		CurrentPage: 1,
+		PageSize:    totalItems,
+		TotalItems:  totalItems,
+	}, nil
 }

@@ -1,5 +1,9 @@
 .PHONY: e2e-network e2e-test e2e-test-stop lint
 
+build:
+	@echo "Building smart-contract-cli..."
+	@go build -o smart-contract-cli ./main.go
+
 e2e-network:
 	@echo "Starting Anvil network..."
 	pkill -f "anvil" || true

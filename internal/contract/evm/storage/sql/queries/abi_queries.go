@@ -9,18 +9,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// AbiQueries provides database operations for EvmAbi model.
-type AbiQueries struct {
+// ABIQueries provides database operations for EvmAbi model.
+type ABIQueries struct {
 	db *gorm.DB
 }
 
-// NewAbiQueries creates a new AbiQueries instance.
-func NewAbiQueries(db *gorm.DB) *AbiQueries {
-	return &AbiQueries{db: db}
+// NewABIQueries creates a new ABIQueries instance.
+func NewABIQueries(db *gorm.DB) *ABIQueries {
+	return &ABIQueries{db: db}
 }
 
 // List retrieves a paginated list of ABIs.
-func (q *AbiQueries) List(page int64, pageSize int64) (*types.Pagination[models.EvmAbi], error) {
+func (q *ABIQueries) List(page int64, pageSize int64) (*types.Pagination[models.EvmAbi], error) {
 	if page < 1 {
 		return nil, customerrors.NewDatabaseError(customerrors.ErrCodeInvalidPageNumber, "page number must be greater than 0")
 	}
@@ -54,8 +54,8 @@ func (q *AbiQueries) List(page int64, pageSize int64) (*types.Pagination[models.
 	}, nil
 }
 
-// GetById retrieves an ABI by its ID.
-func (q *AbiQueries) GetById(id uint) (*models.EvmAbi, error) {
+// GetByID retrieves an ABI by its ID.
+func (q *ABIQueries) GetByID(id uint) (*models.EvmAbi, error) {
 	var abi models.EvmAbi
 	if err := q.db.First(&abi, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -67,7 +67,7 @@ func (q *AbiQueries) GetById(id uint) (*models.EvmAbi, error) {
 }
 
 // Create creates a new ABI.
-func (q *AbiQueries) Create(abi *models.EvmAbi) error {
+func (q *ABIQueries) Create(abi *models.EvmAbi) error {
 	if err := q.db.Create(abi).Error; err != nil {
 		return customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to create ABI")
 	}
@@ -75,7 +75,7 @@ func (q *AbiQueries) Create(abi *models.EvmAbi) error {
 }
 
 // Update updates an ABI by ID with the provided updates.
-func (q *AbiQueries) Update(id uint, updates map[string]interface{}) error {
+func (q *ABIQueries) Update(id uint, updates map[string]interface{}) error {
 	result := q.db.Model(&models.EvmAbi{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return customerrors.WrapDatabaseError(result.Error, customerrors.ErrCodeDatabaseOperationFailed, "failed to update ABI")
@@ -87,7 +87,7 @@ func (q *AbiQueries) Update(id uint, updates map[string]interface{}) error {
 }
 
 // Delete deletes an ABI by ID.
-func (q *AbiQueries) Delete(id uint) error {
+func (q *ABIQueries) Delete(id uint) error {
 	result := q.db.Delete(&models.EvmAbi{}, id)
 	if result.Error != nil {
 		return customerrors.WrapDatabaseError(result.Error, customerrors.ErrCodeDatabaseOperationFailed, "failed to delete ABI")
@@ -99,7 +99,7 @@ func (q *AbiQueries) Delete(id uint) error {
 }
 
 // Exists checks if an ABI with the given ID exists.
-func (q *AbiQueries) Exists(id uint) (bool, error) {
+func (q *ABIQueries) Exists(id uint) (bool, error) {
 	var count int64
 	if err := q.db.Model(&models.EvmAbi{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return false, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to check ABI existence")
@@ -108,10 +108,36 @@ func (q *AbiQueries) Exists(id uint) (bool, error) {
 }
 
 // Count returns the total number of ABIs.
-func (q *AbiQueries) Count() (int64, error) {
+func (q *ABIQueries) Count() (int64, error) {
 	var count int64
 	if err := q.db.Model(&models.EvmAbi{}).Count(&count).Error; err != nil {
 		return 0, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count ABIs")
 	}
 	return count, nil
+}
+
+// Search searches for ABIs by name.
+func (q *ABIQueries) Search(query string) (*types.Pagination[models.EvmAbi], error) {
+	var items []models.EvmAbi
+	var totalItems int64
+
+	searchPattern := "%" + query + "%"
+
+	// Count total matching items
+	if err := q.db.Model(&models.EvmAbi{}).Where("name LIKE ?", searchPattern).Count(&totalItems).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count ABIs")
+	}
+
+	// Retrieve all matching items
+	if err := q.db.Where("name LIKE ?", searchPattern).Order("created_at DESC").Find(&items).Error; err != nil {
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to search ABIs")
+	}
+
+	return &types.Pagination[models.EvmAbi]{
+		Items:       items,
+		TotalPages:  1,
+		CurrentPage: 1,
+		PageSize:    totalItems,
+		TotalItems:  totalItems,
+	}, nil
 }
