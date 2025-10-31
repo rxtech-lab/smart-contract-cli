@@ -104,45 +104,45 @@ func generatePackageAlias(fsPath string) string {
 
 // GenerateRoutesFile generates the Go source code for the routes.go file.
 func GenerateRoutesFile(routes []RouteDefinition, moduleName string) string {
-	var sb strings.Builder
+	var strBuilder strings.Builder
 
 	// Package declaration
-	sb.WriteString("package app\n\n")
+	strBuilder.WriteString("package app\n\n")
 
 	// Imports
-	sb.WriteString("import (\n")
-	sb.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/view\"\n")
-	sb.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/storage\"\n")
+	strBuilder.WriteString("import (\n")
+	strBuilder.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/view\"\n")
+	strBuilder.WriteString("\t\"github.com/rxtech-lab/smart-contract-cli/internal/storage\"\n")
 
 	// Import each page package (skip root package to avoid import cycle)
 	appPackagePath := moduleName + "/app"
 	for _, route := range routes {
 		// Skip importing the app package itself to avoid circular import
 		if route.PackagePath != appPackagePath {
-			sb.WriteString(fmt.Sprintf("\t%s \"%s\"\n", route.PackageAlias, route.PackagePath))
+			strBuilder.WriteString(fmt.Sprintf("\t%s \"%s\"\n", route.PackageAlias, route.PackagePath))
 		}
 	}
-	sb.WriteString(")\n\n")
+	strBuilder.WriteString(")\n\n")
 
 	// GetRoutes function
-	sb.WriteString("// GetRoutes returns all routes generated from the app folder structure.\n")
-	sb.WriteString("func GetRoutes() []view.Route {\n")
-	sb.WriteString("\treturn []view.Route{\n")
+	strBuilder.WriteString("// GetRoutes returns all routes generated from the app folder structure.\n")
+	strBuilder.WriteString("func GetRoutes() []view.Route {\n")
+	strBuilder.WriteString("\treturn []view.Route{\n")
 
 	for _, route := range routes {
 		// For root package, call NewPage() directly without package prefix
 		if route.PackagePath == appPackagePath {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r, sharedMemory) }},\n", route.Path))
+			strBuilder.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r, sharedMemory) }},\n", route.Path))
 		} else {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return %s.NewPage(r, sharedMemory) }},\n",
+			strBuilder.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return %s.NewPage(r, sharedMemory) }},\n",
 				route.Path, route.PackageAlias))
 		}
 	}
 
-	sb.WriteString("\t}\n")
-	sb.WriteString("}\n")
+	strBuilder.WriteString("\t}\n")
+	strBuilder.WriteString("}\n")
 
-	return sb.String()
+	return strBuilder.String()
 }
 
 // ConvertAbsoluteToModulePath converts an absolute file path to a module-relative import path.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -125,6 +126,12 @@ func printSuccess(outputFile string, routes []RouteDefinition) {
 // detectModuleName reads the go.mod file to determine the module name.
 func detectModuleName(moduleRoot string) (string, error) {
 	goModPath := filepath.Join(moduleRoot, "go.mod")
+
+	// Validate path to prevent directory traversal
+	cleaned := filepath.Clean(goModPath)
+	if strings.Contains(cleaned, "..") {
+		return "", fmt.Errorf("invalid file path: %s", goModPath)
+	}
 
 	data, err := os.ReadFile(goModPath)
 	if err != nil {

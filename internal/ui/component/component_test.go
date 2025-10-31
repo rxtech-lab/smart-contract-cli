@@ -16,7 +16,7 @@ func TestComponentTestSuite(t *testing.T) {
 	suite.Run(t, new(ComponentTestSuite))
 }
 
-// Test ComponentFunc
+// Test ComponentFunc.
 func (s *ComponentTestSuite) TestComponentFunc() {
 	comp := ComponentFunc(func() string {
 		return "Hello, World!"
@@ -25,19 +25,19 @@ func (s *ComponentTestSuite) TestComponentFunc() {
 	s.Equal("Hello, World!", comp.Render())
 }
 
-// Test Empty
+// Test Empty.
 func (s *ComponentTestSuite) TestEmpty() {
 	comp := Empty()
 	s.Equal("", comp.Render())
 }
 
-// Test Raw
+// Test Raw.
 func (s *ComponentTestSuite) TestRaw() {
 	comp := Raw("Raw content")
 	s.Equal("Raw content", comp.Render())
 }
 
-// Test Join
+// Test Join.
 func (s *ComponentTestSuite) TestJoin() {
 	c1 := T("Hello")
 	c2 := T("World")
@@ -58,7 +58,7 @@ func (s *ComponentTestSuite) TestJoinSingle() {
 	s.Equal("Hello", joined.Render())
 }
 
-// Test Text component
+// Test Text component.
 func (s *ComponentTestSuite) TestText() {
 	text := T("Hello")
 	s.Contains(text.Render(), "Hello")
@@ -79,7 +79,7 @@ func (s *ComponentTestSuite) TestTextPresets() {
 	s.NotEmpty(T("Muted").Muted().Render())
 }
 
-// Test VStack
+// Test VStack.
 func (s *ComponentTestSuite) TestVStack() {
 	stack := NewVStack(
 		T("Line 1"),
@@ -110,7 +110,7 @@ func (s *ComponentTestSuite) TestVStackSpacing() {
 	s.GreaterOrEqual(len(lines), 2)
 }
 
-// Test HStack
+// Test HStack.
 func (s *ComponentTestSuite) TestHStack() {
 	stack := NewHStack(
 		T("A"),
@@ -139,7 +139,7 @@ func (s *ComponentTestSuite) TestHStackSpacing() {
 	s.NotEmpty(rendered)
 }
 
-// Test Spacer
+// Test Spacer.
 func (s *ComponentTestSuite) TestSpacerVertical() {
 	spacer := SpacerV(2)
 	rendered := spacer.Render()
@@ -157,7 +157,7 @@ func (s *ComponentTestSuite) TestSpacerZero() {
 	s.Equal("", spacer.Render())
 }
 
-// Test Divider
+// Test Divider.
 func (s *ComponentTestSuite) TestDivider() {
 	div := NewDivider("─", 10)
 	rendered := div.Render()
@@ -170,7 +170,7 @@ func (s *ComponentTestSuite) TestDividerLine() {
 	s.Contains(rendered, "─")
 }
 
-// Test List
+// Test List.
 func (s *ComponentTestSuite) TestList() {
 	items := []ListItem{
 		Item("Item 1", "1", "Description 1"),
@@ -356,7 +356,7 @@ func (s *ComponentTestSuite) TestBulletListCustomBullet() {
 	s.Contains(rendered, "*")
 }
 
-// Test Box
+// Test Box.
 func (s *ComponentTestSuite) TestBox() {
 	box := NewBox(T("Content"))
 	rendered := box.Render()
@@ -381,7 +381,7 @@ func (s *ComponentTestSuite) TestPanel() {
 	s.Contains(rendered, "Panel content")
 }
 
-// Test Padding
+// Test Padding.
 func (s *ComponentTestSuite) TestPadding() {
 	padded := NewPadding(T("Content")).All(1)
 	rendered := padded.Render()
@@ -400,14 +400,14 @@ func (s *ComponentTestSuite) TestPaddingHorizontal() {
 	s.NotEmpty(rendered)
 }
 
-// Test Center
+// Test Center.
 func (s *ComponentTestSuite) TestCenter() {
 	centered := NewCenter(T("Centered"), 20, 5)
 	rendered := centered.Render()
 	s.Contains(rendered, "Centered")
 }
 
-// Test Conditional - If
+// Test Conditional - If.
 func (s *ComponentTestSuite) TestIfTrue() {
 	comp := IfC(true, T("True"), T("False"))
 	s.Equal("True", comp.Render())
@@ -418,7 +418,7 @@ func (s *ComponentTestSuite) TestIfFalse() {
 	s.Equal("False", comp.Render())
 }
 
-// Test Conditional - IfThen
+// Test Conditional - IfThen.
 func (s *ComponentTestSuite) TestIfThenTrue() {
 	comp := IfThenC(true, T("Shown"))
 	s.Equal("Shown", comp.Render())
@@ -429,7 +429,7 @@ func (s *ComponentTestSuite) TestIfThenFalse() {
 	s.Equal("", comp.Render())
 }
 
-// Test Conditional - Unless
+// Test Conditional - Unless.
 func (s *ComponentTestSuite) TestUnlessTrue() {
 	comp := UnlessC(true, T("Hidden"))
 	s.Equal("", comp.Render())
@@ -440,7 +440,7 @@ func (s *ComponentTestSuite) TestUnlessFalse() {
 	s.Equal("Shown", comp.Render())
 }
 
-// Test Conditional - Switch
+// Test Conditional - Switch.
 func (s *ComponentTestSuite) TestSwitch() {
 	value := 2
 
@@ -487,7 +487,7 @@ func (s *ComponentTestSuite) TestMatchRange() {
 	s.Equal("Mid", comp.Render())
 }
 
-// Test Show/Hide helpers
+// Test Show/Hide helpers.
 func (s *ComponentTestSuite) TestShow() {
 	s.Equal("Shown", Show(true, T("Shown")).Render())
 	s.Equal("", Show(false, T("Hidden")).Render())
@@ -498,13 +498,13 @@ func (s *ComponentTestSuite) TestHide() {
 	s.Equal("Shown", Hide(false, T("Shown")).Render())
 }
 
-// Test Toggle
+// Test Toggle.
 func (s *ComponentTestSuite) TestToggle() {
 	s.Equal("On", Toggle(true, T("On"), T("Off")).Render())
 	s.Equal("Off", Toggle(false, T("On"), T("Off")).Render())
 }
 
-// Integration tests - Complex compositions
+// Integration tests - Complex compositions.
 func (s *ComponentTestSuite) TestComplexComposition() {
 	comp := VStackC(
 		T("Title").Bold(true),
@@ -558,7 +558,7 @@ func (s *ComponentTestSuite) TestNestedConditionals() {
 	s.NotContains(rendered, "Please log in")
 }
 
-// Test style application
+// Test style application.
 func (s *ComponentTestSuite) TestStyleApplication() {
 	style := lipgloss.NewStyle().
 		Bold(true).
@@ -569,7 +569,7 @@ func (s *ComponentTestSuite) TestStyleApplication() {
 	s.NotEmpty(rendered)
 }
 
-// Test List with highlighting
+// Test List with highlighting.
 func (s *ComponentTestSuite) TestListWithHighlighting() {
 	items := []ListItem{
 		Item("SQLite", "sqlite", "Local database"),

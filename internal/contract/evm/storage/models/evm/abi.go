@@ -46,7 +46,7 @@ func (a *AbiArrayType) Scan(value any) error {
 
 	parsed, err := abi.ParseAbi(string(bytes))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	a.AbiArray = parsed

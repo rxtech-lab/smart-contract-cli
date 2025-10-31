@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/rxtech-lab/smart-contract-cli/internal/errors"
@@ -69,7 +70,12 @@ func downloadAbi(url string) (AbiArray, error) {
 	if err != nil {
 		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to download ABI from URL: %s", url))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log error but don't fail the operation
+			_ = closeErr
+		}
+	}()
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
@@ -87,11 +93,17 @@ func downloadAbi(url string) (AbiArray, error) {
 }
 
 // readAbiFromFile reads an ABI from a local file and parses it.
-func readAbiFromFile(filepath string) (AbiArray, error) {
+func readAbiFromFile(filePath string) (AbiArray, error) {
+	// Validate filePath to prevent directory traversal
+	cleaned := filepath.Clean(filePath)
+	if strings.Contains(cleaned, "..") {
+		return nil, errors.NewABIError(errors.ErrCodeABIParseFailed, fmt.Sprintf("invalid file path: %s", filePath))
+	}
+
 	// Read file
-	data, err := os.ReadFile(filepath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to read ABI file: %s", filepath))
+		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to read ABI file: %s", filePath))
 	}
 
 	// Parse ABI

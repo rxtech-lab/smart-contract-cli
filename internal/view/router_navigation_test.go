@@ -83,7 +83,7 @@ func (m HomeModel) View() string {
 	return "Home Page"
 }
 
-// RouterNavigationTestSuite tests router navigation using teatest
+// RouterNavigationTestSuite tests router navigation using teatest.
 type RouterNavigationTestSuite struct {
 	suite.Suite
 }
@@ -98,14 +98,15 @@ func (s *RouterNavigationTestSuite) getOutput(tm *teatest.TestModel) string {
 	return string(output)
 }
 
-// TestEnterKeyNavigation tests that pressing Enter navigates to the sub page
+// TestEnterKeyNavigation tests that pressing Enter navigates to the sub page.
 func (s *RouterNavigationTestSuite) TestEnterKeyNavigation() {
 	router := NewRouter()
 	router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewPage(r) }})
 	router.AddRoute(Route{Path: "/page2", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewSubPage(r) }})
-	router.NavigateTo("/", nil)
+	err := router.NavigateTo("/", nil)
+	s.NoError(err, "Should navigate to root")
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		router,
 		teatest.WithInitialTermSize(300, 100),
@@ -115,7 +116,7 @@ func (s *RouterNavigationTestSuite) TestEnterKeyNavigation() {
 	s.Equal("/", router.GetPath(), "Should be on root path")
 
 	// Send Enter key to navigate to page2
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Give time for the update to process
 	time.Sleep(200 * time.Millisecond)
@@ -124,23 +125,24 @@ func (s *RouterNavigationTestSuite) TestEnterKeyNavigation() {
 	// Note: We verify the navigation worked by checking the router state directly
 	// since the teatest FinalOutput captures the entire terminal session
 	s.Equal("/page2", router.GetPath(), "Should navigate to /page2 after Enter")
-	s.Contains(s.getOutput(tm), "Sub Page", "Should contain sub page content")
+	s.Contains(s.getOutput(testModel), "Sub Page", "Should contain sub page content")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestEscKeyNavigation tests that pressing Esc navigates back to the previous page
+// TestEscKeyNavigation tests that pressing Esc navigates back to the previous page.
 func (s *RouterNavigationTestSuite) TestEscKeyNavigation() {
 	router := NewRouter()
 	router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewPage(r) }})
 	router.AddRoute(Route{Path: "/page2", Component: func(r Router, sharedMemory storage.SharedMemory) View { return NewSubPage(r) }})
 
 	// Navigate to sub page first
-	router.NavigateTo("/page2", nil)
+	err := router.NavigateTo("/page2", nil)
+	s.NoError(err, "Should navigate to page2")
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		router,
 		teatest.WithInitialTermSize(300, 100),
@@ -151,19 +153,21 @@ func (s *RouterNavigationTestSuite) TestEscKeyNavigation() {
 
 	// Verify we're on sub page
 	s.Equal("/page2", router.GetPath(), "Should be on /page2")
-	s.Contains(s.getOutput(tm), "Sub Page", "Should contain sub page content")
+	s.Contains(s.getOutput(testModel), "Sub Page", "Should contain sub page content")
 
 	// Send Esc key to go back
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEsc})
 
 	// Give time for the update to process
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Verify back navigation occurred by checking the router's current path
 	s.Equal("/", router.GetPath(), "Should navigate back to / after Esc")
-	s.Contains(s.getOutput(tm), "Home Page", "Should contain home page content")
+	output := s.getOutput(testModel)
+	s.T().Logf("Output: %s", output)
+	s.Contains(output, "Home Page", "Should contain home page content")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }

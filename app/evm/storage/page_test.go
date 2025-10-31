@@ -35,7 +35,8 @@ func (s *StoragePageTestSuite) SetupTest() {
 	s.testStoragePath = tmpDir
 
 	// Override the storage path for tests
-	os.Setenv("HOME", tmpDir)
+	err = os.Setenv("HOME", tmpDir)
+	s.NoError(err, "Should set HOME environment variable")
 
 	// Set up password and storage
 	s.password = "testpassword123"
@@ -62,7 +63,8 @@ func (s *StoragePageTestSuite) SetupTest() {
 func (s *StoragePageTestSuite) TearDownTest() {
 	// Clean up test storage
 	if s.testStoragePath != "" {
-		os.RemoveAll(s.testStoragePath)
+		err := os.RemoveAll(s.testStoragePath)
+		s.NoError(err, "Should clean up test storage directory")
 	}
 }
 
@@ -82,7 +84,7 @@ func (s *StoragePageTestSuite) TestInitialState() {
 
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -91,15 +93,15 @@ func (s *StoragePageTestSuite) TestInitialState() {
 	// Wait for initial render
 	time.Sleep(100 * time.Millisecond)
 
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Storage Client Configuration", "Should show page title")
 	s.Contains(output, "SQLite", "Should show SQLite option")
 	s.Contains(output, "Postgres", "Should show Postgres option")
 	s.Contains(output, "Legend:", "Should show legend")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestNavigationUpDown tests keyboard navigation between storage options.
@@ -130,7 +132,7 @@ func (s *StoragePageTestSuite) TestNavigationUpDown() {
 func (s *StoragePageTestSuite) TestSelectSQLiteFirstTime() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -140,18 +142,18 @@ func (s *StoragePageTestSuite) TestSelectSQLiteFirstTime() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Press Enter to select SQLite (first option)
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should show input mode for SQLite path
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Configure SQLite", "Should show SQLite configuration")
 	s.Contains(output, "Enter the path", "Should prompt for path")
 
 	// Type a path
 	testPath := "/tmp/test.db"
 	for _, char := range testPath {
-		tm.Send(tea.KeyMsg{
+		testModel.Send(tea.KeyMsg{
 			Type:  tea.KeyRunes,
 			Runes: []rune{char},
 		})
@@ -159,24 +161,24 @@ func (s *StoragePageTestSuite) TestSelectSQLiteFirstTime() {
 	}
 
 	// Submit the path
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(200 * time.Millisecond)
 
 	// Should return to normal view
-	output = s.getOutput(tm)
+	output = s.getOutput(testModel)
 	s.Contains(output, "Storage Client Configuration", "Should return to main view")
 	s.Contains(output, testPath, "Should display the configured path")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestSelectPostgresFirstTime tests selecting Postgres for the first time.
 func (s *StoragePageTestSuite) TestSelectPostgresFirstTime() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -186,22 +188,22 @@ func (s *StoragePageTestSuite) TestSelectPostgresFirstTime() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Navigate to Postgres (second option)
-	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyDown})
 	time.Sleep(50 * time.Millisecond)
 
 	// Press Enter to select Postgres
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should show input mode for Postgres URL
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Configure Postgres", "Should show Postgres configuration")
 	s.Contains(output, "PostgreSQL connection URL", "Should prompt for URL")
 
 	// Type a URL
 	testURL := "postgres://user:pass@localhost:5432/db"
 	for _, char := range testURL {
-		tm.Send(tea.KeyMsg{
+		testModel.Send(tea.KeyMsg{
 			Type:  tea.KeyRunes,
 			Runes: []rune{char},
 		})
@@ -209,24 +211,24 @@ func (s *StoragePageTestSuite) TestSelectPostgresFirstTime() {
 	}
 
 	// Submit the URL
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(200 * time.Millisecond)
 
 	// Should return to normal view with masked password
-	output = s.getOutput(tm)
+	output = s.getOutput(testModel)
 	s.Contains(output, "Storage Client Configuration", "Should return to main view")
 	s.Contains(output, "postgres://user:****@localhost:5432/db", "Should display masked URL")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestCancelInput tests canceling input with Escape key.
 func (s *StoragePageTestSuite) TestCancelInput() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -236,32 +238,32 @@ func (s *StoragePageTestSuite) TestCancelInput() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Select SQLite
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should be in input mode
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Configure SQLite", "Should be in SQLite config mode")
 
 	// Press Escape to cancel
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEsc})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should return to normal view
-	output = s.getOutput(tm)
+	output = s.getOutput(testModel)
 	s.Contains(output, "Storage Client Configuration", "Should return to main view")
 	s.NotContains(output, "Configure SQLite", "Should exit config mode")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestEmptyPathValidation tests that empty path/URL is rejected.
 func (s *StoragePageTestSuite) TestEmptyPathValidation() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -271,20 +273,20 @@ func (s *StoragePageTestSuite) TestEmptyPathValidation() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Select SQLite
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Submit without entering anything
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should show error
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Path/URL cannot be empty", "Should show validation error")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestActiveClientHighlighting tests that active client is highlighted.
@@ -297,7 +299,7 @@ func (s *StoragePageTestSuite) TestActiveClientHighlighting() {
 
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -307,13 +309,13 @@ func (s *StoragePageTestSuite) TestActiveClientHighlighting() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Should show active client marker
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "★", "Should show star marker for active client")
 	s.Contains(output, "/tmp/test.db", "Should show configured path")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestConfirmationDialog tests the confirmation dialog for existing config.
@@ -326,7 +328,7 @@ func (s *StoragePageTestSuite) TestConfirmationDialog() {
 
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -336,11 +338,11 @@ func (s *StoragePageTestSuite) TestConfirmationDialog() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Select SQLite (already configured)
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(100 * time.Millisecond)
 
 	// Should show confirmation dialog
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "SQLite Configuration", "Should show configuration dialog")
 	s.Contains(output, "Use existing configuration", "Should show use existing option")
 	s.Contains(output, "Change configuration", "Should show change option")
@@ -348,8 +350,8 @@ func (s *StoragePageTestSuite) TestConfirmationDialog() {
 	s.Contains(output, "/tmp/existing.db", "Should show current path")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
 // TestPasswordMasking tests that Postgres password is properly masked.
@@ -396,7 +398,8 @@ func (s *StoragePageTestSuite) TestBackNavigation() {
 	}
 
 	// Store password for initialization
-	s.sharedMemory.Set(config.SecureStoragePasswordKey, s.password)
+	err := s.sharedMemory.Set(config.SecureStoragePasswordKey, s.password)
+	s.NoError(err, "Should store password in shared memory")
 
 	model := NewPage(mockRouter, s.sharedMemory)
 

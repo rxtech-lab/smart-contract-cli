@@ -77,14 +77,14 @@ func (suite *PrivateKeySignerTestSuite) TestNewPrivateKeySigner() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			signer, err := NewPrivateKeySigner(tt.privateKey)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			signer, err := NewPrivateKeySigner(testCase.privateKey)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
-				if tt.errContains != "" && err != nil {
-					suite.Contains(err.Error(), tt.errContains, "error should contain expected text")
+				if testCase.errContains != "" && err != nil {
+					suite.Contains(err.Error(), testCase.errContains, "error should contain expected text")
 				}
 				suite.Nil(signer, "expected nil signer on error")
 				return
@@ -135,11 +135,11 @@ func (suite *PrivateKeySignerTestSuite) TestSignMessageString() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			signature, err := suite.signer.SignMessageString(tt.message)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			signature, err := suite.signer.SignMessageString(testCase.message)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
 				return
 			}
@@ -150,13 +150,13 @@ func (suite *PrivateKeySignerTestSuite) TestSignMessageString() {
 			suite.Equal("0x", signature[:2], "signature should start with 0x")
 			// Signature should be 65 bytes (130 hex chars) + 2 for 0x prefix = 132 total
 			suite.Equal(132, len(signature), "signature should be 132 characters (0x + 130 hex)")
-			suite.T().Logf("Message: %q", tt.message)
+			suite.T().Logf("Message: %q", testCase.message)
 			suite.T().Logf("Signature: %s", signature)
 		})
 	}
 }
 
-// TestVerifyMessageString tests message verification with invalid cases
+// TestVerifyMessageString tests message verification with invalid cases.
 func (suite *PrivateKeySignerTestSuite) TestVerifyMessageString() {
 	message := "Test message for verification"
 
@@ -224,19 +224,19 @@ func (suite *PrivateKeySignerTestSuite) TestVerifyMessageString() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			isValid, recoveredAddr, err := suite.signer.VerifyMessageString(tt.address, tt.message, tt.signature)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			isValid, recoveredAddr, err := suite.signer.VerifyMessageString(testCase.address, testCase.message, testCase.signature)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
 				return
 			}
 
 			suite.NoError(err, "VerifyMessageString should not return error")
-			suite.Equal(tt.wantValid, isValid, "signature validity should match expected")
+			suite.Equal(testCase.wantValid, isValid, "signature validity should match expected")
 
-			if tt.checkRecoveredAddr && tt.wantValid {
+			if testCase.checkRecoveredAddr && testCase.wantValid {
 				suite.Equal(suite.testAddress, recoveredAddr, "recovered address should match signer address")
 				suite.T().Logf("Recovered address: %s", recoveredAddr.Hex())
 			}
@@ -244,7 +244,7 @@ func (suite *PrivateKeySignerTestSuite) TestVerifyMessageString() {
 	}
 }
 
-// TestSignAndVerifyMessageRoundtrip tests the full sign and verify flow
+// TestSignAndVerifyMessageRoundtrip tests the full sign and verify flow.
 func (suite *PrivateKeySignerTestSuite) TestSignAndVerifyMessageRoundtrip() {
 	tests := []struct {
 		name    string
@@ -264,15 +264,15 @@ func (suite *PrivateKeySignerTestSuite) TestSignAndVerifyMessageRoundtrip() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
 			// Step 1: Sign the message
-			signature, err := suite.signer.SignMessageString(tt.message)
+			signature, err := suite.signer.SignMessageString(testCase.message)
 			suite.Require().NoError(err, "failed to sign message")
-			suite.T().Logf("Signed message %q with signature: %s", tt.message, signature)
+			suite.T().Logf("Signed message %q with signature: %s", testCase.message, signature)
 
 			// Step 2: Verify the signature with correct address
-			isValid, recoveredAddr, err := suite.signer.VerifyMessageString(suite.testAddress, tt.message, signature)
+			isValid, recoveredAddr, err := suite.signer.VerifyMessageString(suite.testAddress, testCase.message, signature)
 			suite.Require().NoError(err, "failed to verify message")
 			suite.True(isValid, "signature should be valid for correct address")
 			suite.Equal(suite.testAddress, recoveredAddr, "recovered address should match signer address")
@@ -280,14 +280,14 @@ func (suite *PrivateKeySignerTestSuite) TestSignAndVerifyMessageRoundtrip() {
 
 			// Step 3: Verify the signature with wrong address (should fail)
 			wrongAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
-			isValid, _, err = suite.signer.VerifyMessageString(wrongAddress, tt.message, signature)
+			isValid, _, err = suite.signer.VerifyMessageString(wrongAddress, testCase.message, signature)
 			suite.NoError(err, "verify should not error even with wrong address")
 			suite.False(isValid, "signature should be invalid for wrong address")
 		})
 	}
 }
 
-// TestVerifyMessageWithMetaMaskFormat tests v=27/28 signature format
+// TestVerifyMessageWithMetaMaskFormat tests v=27/28 signature format.
 func (suite *PrivateKeySignerTestSuite) TestVerifyMessageWithMetaMaskFormat() {
 	message := "Test MetaMask format"
 
@@ -322,43 +322,43 @@ func (suite *PrivateKeySignerTestSuite) TestVerifyMessageWithMetaMaskFormat() {
 func (suite *PrivateKeySignerTestSuite) TestSignTransaction() {
 	// Create a simple transaction
 	nonce := uint64(0)
-	to := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	toAddress := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	amount := big.NewInt(1000000000000000000) // 1 ETH
 	gasLimit := uint64(21000)
 	gasFeeCap := big.NewInt(30000000000) // 30 gwei
 	gasTipCap := big.NewInt(2000000000)  // 2 gwei
 	chainID := big.NewInt(testChainID)
 
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   chainID,
 		Nonce:     nonce,
 		GasTipCap: gasTipCap,
 		GasFeeCap: gasFeeCap,
 		Gas:       gasLimit,
-		To:        &to,
+		To:        &toAddress,
 		Value:     amount,
 		Data:      nil,
 	})
 
 	// Sign the transaction
-	signedTx, err := suite.signer.SignTransaction(tx)
+	signedTx, err := suite.signer.SignTransaction(transaction)
 	suite.NoError(err, "SignTransaction should not return error")
 	suite.NotNil(signedTx, "signed transaction should not be nil")
 
 	// Verify the transaction has a signature
-	v, r, s := signedTx.RawSignatureValues()
-	suite.NotNil(v, "v value should not be nil")
-	suite.NotNil(r, "r value should not be nil")
-	suite.NotNil(s, "s value should not be nil")
-	suite.True(r.Sign() > 0, "r should be positive")
-	suite.True(s.Sign() > 0, "s should be positive")
+	vValue, rValue, sValue := signedTx.RawSignatureValues()
+	suite.NotNil(vValue, "v value should not be nil")
+	suite.NotNil(rValue, "r value should not be nil")
+	suite.NotNil(sValue, "s value should not be nil")
+	suite.True(rValue.Sign() > 0, "r should be positive")
+	suite.True(sValue.Sign() > 0, "s should be positive")
 
 	suite.T().Logf("Transaction signed successfully")
 	suite.T().Logf("Transaction hash: %s", signedTx.Hash().Hex())
-	suite.T().Logf("V: %s, R: %s, S: %s", v.String(), r.String(), s.String())
+	suite.T().Logf("V: %s, R: %s, S: %s", vValue.String(), rValue.String(), sValue.String())
 }
 
-// TestSignTransactionAndSendToE2E is an E2E integration test
+// TestSignTransactionAndSendToE2E is an E2E integration test.
 func (suite *PrivateKeySignerTestSuite) TestSignTransactionAndSendToE2E() {
 	// Create transport
 	transport, err := transport.NewHTTPTransport(testEndpoint, 30*time.Second)
@@ -379,28 +379,28 @@ func (suite *PrivateKeySignerTestSuite) TestSignTransactionAndSendToE2E() {
 
 	// Create a transaction to send ETH to another address
 	// Use Anvil's second default account as recipient
-	to := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	toAddress := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	amount := big.NewInt(1000000000000000000) // 1 ETH
 	gasLimit := uint64(21000)
 	gasFeeCap := big.NewInt(30000000000) // 30 gwei
 	gasTipCap := big.NewInt(2000000000)  // 2 gwei
 	chainID := big.NewInt(testChainID)
 
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   chainID,
 		Nonce:     nonce,
 		GasTipCap: gasTipCap,
 		GasFeeCap: gasFeeCap,
 		Gas:       gasLimit,
-		To:        &to,
+		To:        &toAddress,
 		Value:     amount,
 		Data:      nil,
 	})
 
-	suite.T().Logf("Created transaction to send %s wei to %s", amount.String(), to.Hex())
+	suite.T().Logf("Created transaction to send %s wei to %s", amount.String(), toAddress.Hex())
 
 	// Sign the transaction
-	signedTx, err := suite.signer.SignTransaction(tx)
+	signedTx, err := suite.signer.SignTransaction(transaction)
 	suite.Require().NoError(err, "failed to sign transaction")
 	suite.T().Logf("Transaction signed, hash: %s", signedTx.Hash().Hex())
 
@@ -427,7 +427,15 @@ func (suite *PrivateKeySignerTestSuite) TestSignTransactionAndSendToE2E() {
 	suite.T().Logf("Balance after: %s wei", balanceAfter.String())
 
 	// Balance should decrease by amount + gas costs
-	expectedMaxDecrease := new(big.Int).Add(amount, new(big.Int).Mul(big.NewInt(int64(receipt.GasUsed)), gasFeeCap))
+	// Check for potential overflow before converting uint64 to int64
+	var gasUsedInt64 int64
+	const maxInt64 = 1<<63 - 1
+	if receipt.GasUsed > uint64(maxInt64) {
+		gasUsedInt64 = maxInt64 // Max int64 value
+	} else {
+		gasUsedInt64 = int64(receipt.GasUsed)
+	}
+	expectedMaxDecrease := new(big.Int).Add(amount, new(big.Int).Mul(big.NewInt(gasUsedInt64), gasFeeCap))
 	actualDecrease := new(big.Int).Sub(balanceBefore, balanceAfter)
 	suite.T().Logf("Actual balance decrease: %s wei", actualDecrease.String())
 	suite.T().Logf("Expected max decrease: %s wei", expectedMaxDecrease.String())
@@ -438,7 +446,7 @@ func (suite *PrivateKeySignerTestSuite) TestSignTransactionAndSendToE2E() {
 	suite.LessOrEqual(actualDecrease.Cmp(expectedMaxDecrease), 0, "balance should not decrease more than amount + gas")
 }
 
-// TestPrivateKeySignerTestSuite runs the test suite
+// TestPrivateKeySignerTestSuite runs the test suite.
 func TestPrivateKeySignerTestSuite(t *testing.T) {
 	suite.Run(t, new(PrivateKeySignerTestSuite))
 }

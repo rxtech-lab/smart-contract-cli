@@ -55,6 +55,12 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return r, tea.Quit
 	}
 
+	// handle esc key
+	if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "esc" {
+		r.Back()
+		return r, nil
+	}
+
 	if r.currentComponent == nil {
 		return r, nil
 	}

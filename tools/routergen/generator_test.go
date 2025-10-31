@@ -23,7 +23,8 @@ func (s *GeneratorTestSuite) SetupTest() {
 func (s *GeneratorTestSuite) TearDownTest() {
 	// Clean up temporary directory
 	if s.tempDir != "" {
-		os.RemoveAll(s.tempDir)
+		err := os.RemoveAll(s.tempDir)
+		s.NoError(err, "Should clean up temp directory")
 	}
 }
 
@@ -31,10 +32,10 @@ func (s *GeneratorTestSuite) createPageFile(relPath string) string {
 	fullPath := filepath.Join(s.tempDir, relPath, "page.go")
 	dir := filepath.Dir(fullPath)
 
-	err := os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0750)
 	s.Require().NoError(err)
 
-	err = os.WriteFile(fullPath, []byte("package page\n"), 0644)
+	err = os.WriteFile(fullPath, []byte("package page\n"), 0600)
 	s.Require().NoError(err)
 
 	return fullPath
@@ -182,7 +183,7 @@ func (s *GeneratorTestSuite) TestScanAppFolder_IgnoresNonPageFiles() {
 
 	// Create non-page.go files that should be ignored
 	otherFile := filepath.Join(s.tempDir, "users", "helper.go")
-	err := os.WriteFile(otherFile, []byte("package users\n"), 0644)
+	err := os.WriteFile(otherFile, []byte("package users\n"), 0600)
 	s.Require().NoError(err)
 
 	routes, err := ScanAppFolder(s.tempDir)

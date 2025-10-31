@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	// Anvil default endpoint
+	// Anvil default endpoint.
 	testEndpoint = "http://localhost:8545"
-	// Anvil test account with pre-funded balance
+	// Anvil test account with pre-funded balance.
 	testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 )
 
-// Simple ERC20-like ABI for testing
+// Simple ERC20-like ABI for testing.
 var testABI = `[
 	{
 		"type": "function",
@@ -51,7 +51,7 @@ var testABI = `[
 	}
 ]`
 
-// HTTPTransportTestSuite defines the test suite for HTTP transport
+// HTTPTransportTestSuite defines the test suite for HTTP transport.
 type HTTPTransportTestSuite struct {
 	suite.Suite
 	transport       Transport
@@ -60,7 +60,7 @@ type HTTPTransportTestSuite struct {
 	contractAddress common.Address
 }
 
-// SetupSuite runs once before all tests in the suite
+// SetupSuite runs once before all tests in the suite.
 func (suite *HTTPTransportTestSuite) SetupSuite() {
 	// Parse test ABI
 	err := json.Unmarshal([]byte(testABI), &suite.testABIObj)
@@ -78,22 +78,22 @@ func (suite *HTTPTransportTestSuite) SetupSuite() {
 	suite.transport = transport
 }
 
-// TearDownSuite runs once after all tests in the suite
+// TearDownSuite runs once after all tests in the suite.
 func (suite *HTTPTransportTestSuite) TearDownSuite() {
 	// Cleanup if needed
 }
 
-// SetupTest runs before each test
+// SetupTest runs before each test.
 func (suite *HTTPTransportTestSuite) SetupTest() {
 	// Per-test setup if needed
 }
 
-// TearDownTest runs after each test
+// TearDownTest runs after each test.
 func (suite *HTTPTransportTestSuite) TearDownTest() {
 	// Per-test cleanup if needed
 }
 
-// TestNewHTTPTransport tests transport initialization
+// TestNewHTTPTransport tests transport initialization.
 func (suite *HTTPTransportTestSuite) TestNewHTTPTransport() {
 	tests := []struct {
 		name        string
@@ -119,19 +119,19 @@ func (suite *HTTPTransportTestSuite) TestNewHTTPTransport() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			transport, err := NewHTTPTransport(tt.endpoint, 30*time.Second)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			transport, err := NewHTTPTransport(testCase.endpoint, 30*time.Second)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
-				if tt.errContains != "" && err != nil {
-					suite.Contains(err.Error(), tt.errContains, "error should contain expected text")
+				if testCase.errContains != "" && err != nil {
+					suite.Contains(err.Error(), testCase.errContains, "error should contain expected text")
 				}
 				return
 			}
 
-			if tt.endpoint == testEndpoint && err != nil {
+			if testCase.endpoint == testEndpoint && err != nil {
 				suite.T().Skipf("Anvil network not running: %v", err)
 			}
 
@@ -141,7 +141,7 @@ func (suite *HTTPTransportTestSuite) TestNewHTTPTransport() {
 	}
 }
 
-// TestGetBalance tests balance retrieval
+// TestGetBalance tests balance retrieval.
 func (suite *HTTPTransportTestSuite) TestGetBalance() {
 	tests := []struct {
 		name          string
@@ -165,11 +165,11 @@ func (suite *HTTPTransportTestSuite) TestGetBalance() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			balance, err := suite.transport.GetBalance(tt.address)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			balance, err := suite.transport.GetBalance(testCase.address)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
 				return
 			}
@@ -178,19 +178,19 @@ func (suite *HTTPTransportTestSuite) TestGetBalance() {
 			suite.NotNil(balance, "expected balance but got nil")
 
 			// Check minimum balance for test account
-			if tt.checkMinimum {
+			if testCase.checkMinimum {
 				suite.GreaterOrEqual(
-					balance.Cmp(tt.minimumAmount),
+					balance.Cmp(testCase.minimumAmount),
 					0,
-					"balance should be >= %v, got %v", tt.minimumAmount, balance,
+					"balance should be >= %v, got %v", testCase.minimumAmount, balance,
 				)
-				suite.T().Logf("Account %s has balance: %v wei", tt.address.Hex(), balance)
+				suite.T().Logf("Account %s has balance: %v wei", testCase.address.Hex(), balance)
 			}
 		})
 	}
 }
 
-// TestGetTransactionCount tests nonce retrieval
+// TestGetTransactionCount tests nonce retrieval.
 func (suite *HTTPTransportTestSuite) TestGetTransactionCount() {
 	tests := []struct {
 		name    string
@@ -209,22 +209,22 @@ func (suite *HTTPTransportTestSuite) TestGetTransactionCount() {
 		},
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			nonce, err := suite.transport.GetTransactionCount(tt.address)
+	for _, testCase := range tests {
+		suite.Run(testCase.name, func() {
+			nonce, err := suite.transport.GetTransactionCount(testCase.address)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				suite.Error(err, "expected error but got none")
 				return
 			}
 
 			suite.NoError(err, "GetTransactionCount should not return error")
-			suite.T().Logf("Account %s has nonce: %d", tt.address.Hex(), nonce)
+			suite.T().Logf("Account %s has nonce: %d", testCase.address.Hex(), nonce)
 		})
 	}
 }
 
-// TestCallContract tests contract call functionality
+// TestCallContract tests contract call functionality.
 func (suite *HTTPTransportTestSuite) TestCallContract() {
 	suite.Run("call non-existent contract", func() {
 		// Calling a non-existent contract should either return empty data or an error
@@ -244,12 +244,12 @@ func (suite *HTTPTransportTestSuite) TestCallContract() {
 	})
 }
 
-// TestEstimateGas tests gas estimation
+// TestEstimateGas tests gas estimation.
 func (suite *HTTPTransportTestSuite) TestEstimateGas() {
 	suite.T().Skip("Gas estimation requires a properly signed transaction - skipping in basic e2e test")
 }
 
-// TestSequentialOperations tests multiple operations in sequence
+// TestSequentialOperations tests multiple operations in sequence.
 func (suite *HTTPTransportTestSuite) TestSequentialOperations() {
 	// Get balance
 	balance, err := suite.transport.GetBalance(suite.testAddr)
@@ -270,7 +270,7 @@ func (suite *HTTPTransportTestSuite) TestSequentialOperations() {
 	)
 }
 
-// TestConcurrentOperations tests multiple operations running concurrently
+// TestConcurrentOperations tests multiple operations running concurrently.
 func (suite *HTTPTransportTestSuite) TestConcurrentOperations() {
 	done := make(chan error, 2)
 
@@ -299,7 +299,7 @@ func (suite *HTTPTransportTestSuite) TestConcurrentOperations() {
 	}
 }
 
-// TestHTTPTransportTestSuite runs the test suite
+// TestHTTPTransportTestSuite runs the test suite.
 func TestHTTPTransportTestSuite(t *testing.T) {
 	suite.Run(t, new(HTTPTransportTestSuite))
 }

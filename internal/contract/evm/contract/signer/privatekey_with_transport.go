@@ -58,7 +58,7 @@ func (p *PrivateKeySignerWithTransport) executeReadOnlyCall(contractAddress comm
 	// Call the contract using transport
 	rawResult, err := p.transport.CallContract(contractAddress, contractABI, methodName, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to call contract method %s: %w", methodName, err)
 	}
 
 	// If no outputs, return nil
@@ -117,7 +117,7 @@ func (p *PrivateKeySignerWithTransport) buildTransaction(contractAddress common.
 	// Get chain ID from transport
 	chainID, err := p.transport.GetChainID()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
 	// Use EIP-1559 transaction for better compatibility
@@ -146,14 +146,14 @@ func (p *PrivateKeySignerWithTransport) buildTransaction(contractAddress common.
 
 		estimatedGas, err := p.transport.EstimateGas(signedTempTx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to estimate gas: %w", err)
 		}
 		// Add 50% buffer to gas estimate to avoid out-of-gas errors
 		// Gas estimation can be inaccurate, especially for complex contracts
 		gasLimit = estimatedGas + (estimatedGas / 2)
 	}
 
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   chainID,
 		Nonce:     nonce,
 		GasTipCap: gasTipCap,
@@ -163,7 +163,7 @@ func (p *PrivateKeySignerWithTransport) buildTransaction(contractAddress common.
 		Value:     value,
 		Data:      data,
 	})
-	return tx, nil
+	return transaction, nil
 }
 
 // executeWriteTransaction signs and sends a transaction, then waits for receipt.
@@ -177,13 +177,13 @@ func (p *PrivateKeySignerWithTransport) executeWriteTransaction(tx *types.Transa
 	// Send the transaction
 	txHash, err := p.transport.SendTransaction(signedTx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send transaction: %w", err)
 	}
 
 	// Wait for transaction receipt
 	receipt, err := p.transport.WaitForTransactionReceipt(txHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to wait for transaction receipt: %w", err)
 	}
 
 	// Return status and transaction hash
@@ -213,25 +213,29 @@ func (p *PrivateKeySignerWithTransport) CallContractMethod(contractAddress commo
 	signerAddress := p.PrivateKeySigner.GetAddress()
 	nonce, err := p.transport.GetTransactionCount(signerAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get transaction count: %w", err)
 	}
 
 	// Set default parameters
 	setDefaultTransactionParams(&value, &gasPrice)
 
 	// Build transaction with gas estimation
-	tx, err := p.buildTransaction(contractAddress, nonce, value, gasLimit, gasPrice, data)
+	transaction, err := p.buildTransaction(contractAddress, nonce, value, gasLimit, gasPrice, data)
 	if err != nil {
 		return nil, err
 	}
 
 	// Execute the transaction
-	return p.executeWriteTransaction(tx)
+	return p.executeWriteTransaction(transaction)
 }
 
 // EstimateGas implements SignerWithTransport.
 func (p *PrivateKeySignerWithTransport) EstimateGas(tx *types.Transaction) (gas uint64, err error) {
-	return p.transport.EstimateGas(tx)
+	gas, err = p.transport.EstimateGas(tx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	return gas, nil
 }
 
 // GetAddress implements SignerWithTransport.
@@ -241,12 +245,20 @@ func (p *PrivateKeySignerWithTransport) GetAddress() (address common.Address, er
 
 // GetBalance implements SignerWithTransport.
 func (p *PrivateKeySignerWithTransport) GetBalance(address common.Address) (balance *big.Int, err error) {
-	return p.transport.GetBalance(address)
+	balance, err = p.transport.GetBalance(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance: %w", err)
+	}
+	return balance, nil
 }
 
 // GetTransactionCount implements SignerWithTransport.
 func (p *PrivateKeySignerWithTransport) GetTransactionCount(address common.Address) (nonce uint64, err error) {
-	return p.transport.GetTransactionCount(address)
+	nonce, err = p.transport.GetTransactionCount(address)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get transaction count: %w", err)
+	}
+	return nonce, nil
 }
 
 // SendTransaction implements SignerWithTransport.
@@ -258,7 +270,11 @@ func (p *PrivateKeySignerWithTransport) SendTransaction(tx *types.Transaction) (
 	}
 
 	// Send the signed transaction
-	return p.transport.SendTransaction(signedTx)
+	txHash, err = p.transport.SendTransaction(signedTx)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to send transaction: %w", err)
+	}
+	return txHash, nil
 }
 
 // SignMessageString implements SignerWithTransport.
@@ -278,5 +294,9 @@ func (p *PrivateKeySignerWithTransport) VerifyMessageString(address common.Addre
 
 // WaitForTransactionReceipt implements SignerWithTransport.
 func (p *PrivateKeySignerWithTransport) WaitForTransactionReceipt(txHash common.Hash) (receipt *types.Receipt, err error) {
-	return p.transport.WaitForTransactionReceipt(txHash)
+	receipt, err = p.transport.WaitForTransactionReceipt(txHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for transaction receipt: %w", err)
+	}
+	return receipt, nil
 }

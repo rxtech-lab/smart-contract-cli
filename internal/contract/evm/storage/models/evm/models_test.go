@@ -10,13 +10,13 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// ModelsTestSuite is the test suite for all EVM models
+// ModelsTestSuite is the test suite for all EVM models.
 type ModelsTestSuite struct {
 	suite.Suite
 	db *gorm.DB
 }
 
-// SetupTest is called before each test
+// SetupTest is called before each test.
 func (suite *ModelsTestSuite) SetupTest() {
 	var err error
 	// Use in-memory SQLite database with foreign key support enabled
@@ -38,15 +38,19 @@ func (suite *ModelsTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 }
 
-// TearDownTest is called after each test
+// TearDownTest is called after each test.
 func (suite *ModelsTestSuite) TearDownTest() {
 	sqlDB, err := suite.db.DB()
 	if err == nil {
-		sqlDB.Close()
+		closeErr := sqlDB.Close()
+		if closeErr != nil {
+			// Log error but don't fail the test
+			_ = closeErr
+		}
 	}
 }
 
-// TestEvmAbi_CRUD tests CRUD operations for EvmAbi
+// TestEvmAbi_CRUD tests CRUD operations for EvmAbi.
 func (suite *ModelsTestSuite) TestEvmAbi_CRUD() {
 	// Create
 	abiJSON := `[{"type":"function","name":"balanceOf","inputs":[{"name":"owner","type":"address"}],"outputs":[{"name":"balance","type":"uint256"}],"stateMutability":"view"}]`
@@ -99,7 +103,7 @@ func (suite *ModelsTestSuite) TestEvmAbi_CRUD() {
 	suite.Assert().ErrorIs(result.Error, gorm.ErrRecordNotFound)
 }
 
-// TestEvmAbi_UniqueConstraint tests the unique constraint on Name
+// TestEvmAbi_UniqueConstraint tests the unique constraint on Name.
 func (suite *ModelsTestSuite) TestEvmAbi_UniqueConstraint() {
 	abiJSON := `[{"type":"function","name":"test","inputs":[],"outputs":[],"stateMutability":"view"}]`
 	parsed, err := abi.ParseAbi(abiJSON)
@@ -127,7 +131,7 @@ func (suite *ModelsTestSuite) TestEvmAbi_UniqueConstraint() {
 	suite.Assert().Error(result.Error)
 }
 
-// TestEVMEndpoint_CRUD tests CRUD operations for EVMEndpoint
+// TestEVMEndpoint_CRUD tests CRUD operations for EVMEndpoint.
 func (suite *ModelsTestSuite) TestEVMEndpoint_CRUD() {
 	// Create
 	endpoint := &EVMEndpoint{
@@ -168,7 +172,7 @@ func (suite *ModelsTestSuite) TestEVMEndpoint_CRUD() {
 	suite.Assert().ErrorIs(result.Error, gorm.ErrRecordNotFound)
 }
 
-// TestEVMEndpoint_UniqueConstraint tests the unique constraint on Name
+// TestEVMEndpoint_UniqueConstraint tests the unique constraint on Name.
 func (suite *ModelsTestSuite) TestEVMEndpoint_UniqueConstraint() {
 	endpoint1 := &EVMEndpoint{
 		Name:    "TestEndpoint",
@@ -190,7 +194,7 @@ func (suite *ModelsTestSuite) TestEVMEndpoint_UniqueConstraint() {
 	suite.Assert().Error(result.Error)
 }
 
-// TestEVMContract_CRUD tests CRUD operations for EVMContract
+// TestEVMContract_CRUD tests CRUD operations for EVMContract.
 func (suite *ModelsTestSuite) TestEVMContract_CRUD() {
 	// Create endpoint first
 	endpoint := &EVMEndpoint{
@@ -264,7 +268,7 @@ func (suite *ModelsTestSuite) TestEVMContract_CRUD() {
 	suite.Assert().ErrorIs(result.Error, gorm.ErrRecordNotFound)
 }
 
-// TestEVMContract_CompositeUniqueIndex tests the composite unique constraint
+// TestEVMContract_CompositeUniqueIndex tests the composite unique constraint.
 func (suite *ModelsTestSuite) TestEVMContract_CompositeUniqueIndex() {
 	// Create endpoint
 	endpoint := &EVMEndpoint{
@@ -307,7 +311,7 @@ func (suite *ModelsTestSuite) TestEVMContract_CompositeUniqueIndex() {
 	suite.Assert().NoError(result.Error)
 }
 
-// TestEVMContract_CascadeDelete tests cascade delete when endpoint is deleted
+// TestEVMContract_CascadeDelete tests cascade delete when endpoint is deleted.
 func (suite *ModelsTestSuite) TestEVMContract_CascadeDelete() {
 	// Create endpoint
 	endpoint := &EVMEndpoint{
@@ -342,7 +346,7 @@ func (suite *ModelsTestSuite) TestEVMContract_CascadeDelete() {
 	suite.Assert().ErrorIs(result.Error, gorm.ErrRecordNotFound)
 }
 
-// TestEVMContract_SetNullOnAbiDelete tests SET NULL when ABI is deleted
+// TestEVMContract_SetNullOnAbiDelete tests SET NULL when ABI is deleted.
 func (suite *ModelsTestSuite) TestEVMContract_SetNullOnAbiDelete() {
 	// Create endpoint
 	endpoint := &EVMEndpoint{
@@ -390,7 +394,7 @@ func (suite *ModelsTestSuite) TestEVMContract_SetNullOnAbiDelete() {
 	suite.Assert().Nil(updated.AbiId)
 }
 
-// TestEVMConfig_CRUD tests CRUD operations for EVMConfig
+// TestEVMConfig_CRUD tests CRUD operations for EVMConfig.
 func (suite *ModelsTestSuite) TestEVMConfig_CRUD() {
 	// Create endpoint
 	endpoint := &EVMEndpoint{
@@ -463,7 +467,7 @@ func (suite *ModelsTestSuite) TestEVMConfig_CRUD() {
 	suite.Assert().ErrorIs(result.Error, gorm.ErrRecordNotFound)
 }
 
-// TestEVMConfig_SetNullOnForeignKeyDelete tests SET NULL behavior
+// TestEVMConfig_SetNullOnForeignKeyDelete tests SET NULL behavior.
 func (suite *ModelsTestSuite) TestEVMConfig_SetNullOnForeignKeyDelete() {
 	// Create all required entities
 	endpoint := &EVMEndpoint{
@@ -516,7 +520,7 @@ func (suite *ModelsTestSuite) TestEVMConfig_SetNullOnForeignKeyDelete() {
 	suite.Assert().NotNil(updated.SelectedEVMContractId)
 }
 
-// TestAbiArrayType_NullValue tests AbiArrayType with NULL value
+// TestAbiArrayType_NullValue tests AbiArrayType with NULL value.
 func (suite *ModelsTestSuite) TestAbiArrayType_NullValue() {
 	evmAbi := &EvmAbi{
 		Name: "EmptyABI",
@@ -534,7 +538,7 @@ func (suite *ModelsTestSuite) TestAbiArrayType_NullValue() {
 	suite.Assert().Nil(retrieved.Abi.AbiArray)
 }
 
-// TestConcurrentOperations tests concurrent database operations
+// TestConcurrentOperations tests concurrent database operations.
 func (suite *ModelsTestSuite) TestConcurrentOperations() {
 	endpoint := &EVMEndpoint{
 		Name:    "TestEndpoint",
@@ -562,7 +566,7 @@ func (suite *ModelsTestSuite) TestConcurrentOperations() {
 	suite.Assert().Equal(int64(10), count)
 }
 
-// TestRunSuite runs the test suite
+// TestRunSuite runs the test suite.
 func TestRunSuite(t *testing.T) {
 	suite.Run(t, new(ModelsTestSuite))
 }
