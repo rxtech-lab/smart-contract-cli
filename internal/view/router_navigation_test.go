@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
-	"github.com/stretchr/testify/suite"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
+	"github.com/stretchr/testify/suite"
 )
 
 type HomeModel struct {

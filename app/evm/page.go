@@ -2,6 +2,7 @@ package evm
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
@@ -26,7 +27,7 @@ var options = []Option{
 	{Label: "Endpoint Management", Value: "endpoint-management", Route: "/evm/endpoint-management", Description: "Manage the endpoint of the contract"},
 }
 
-func NewPage(router view.Router) view.View {
+func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
 	return Model{
 		router:         router,
 		selectedOption: options[0], // Initialize with first option

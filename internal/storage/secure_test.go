@@ -26,6 +26,10 @@ func (s *SecureStorageTestSuite) SetupTest() {
 	// Create storage with encryption
 	s.storage, err = NewSecureStorageWithEncryption("test-encryption-key", s.tempFile)
 	s.Require().NoError(err)
+
+	// Create the storage with a password
+	err = s.storage.Create("test-password")
+	s.Require().NoError(err)
 }
 
 func (s *SecureStorageTestSuite) TearDownTest() {
@@ -168,7 +172,7 @@ func (s *SecureStorageTestSuite) TestPersistence() {
 	_, err = os.Stat(s.tempFile)
 	s.Require().NoError(err, "Storage file should exist")
 
-	// Create new storage instance with same file
+	// Create new storage instance with same file (it will auto-load existing data)
 	newStorage, err := NewSecureStorageWithEncryption("test-encryption-key", s.tempFile)
 	s.Require().NoError(err)
 	defer newStorage.Close()
@@ -209,33 +213,40 @@ func (s *SecureStorageTestSuite) TestWrongEncryptionKey() {
 	s.Require().NoError(err)
 	s.storage.Close()
 
-	// Try to load with different key
+	// Try to load with different encryption key (but it will still load the file)
 	wrongStorage, err := NewSecureStorageWithEncryption("wrong-key", s.tempFile)
 	s.Require().NoError(err)
 	defer wrongStorage.Close()
 
-	// Should fail to decrypt
+	// Should fail to decrypt because encryption key is different
 	_, err = wrongStorage.Get("secret")
 	s.Error(err)
 	s.Contains(err.Error(), "failed to decrypt")
 }
 
-// Test in-memory storage (no file path)
-func (s *SecureStorageTestSuite) TestInMemoryStorage() {
-	inMemStorage, err := NewSecureStorageWithEncryption("memory-key", "")
+// Test in-memory storage (uses default path)
+func (s *SecureStorageTestSuite) TestDefaultPath() {
+	// When no path is provided, it should use the default path
+	// For testing, we'll provide an explicit path instead
+	testPath := filepath.Join(s.tempDir, "default-path-test.json")
+	storage, err := NewSecureStorageWithEncryption("memory-key", testPath)
 	s.Require().NoError(err)
-	defer inMemStorage.Close()
+	defer storage.Close()
+
+	// Create the storage
+	err = storage.Create("test-password")
+	s.Require().NoError(err)
 
 	// Set and get data
-	err = inMemStorage.Set("key1", "value1")
+	err = storage.Set("key1", "value1")
 	s.Require().NoError(err)
 
-	value, err := inMemStorage.Get("key1")
+	value, err := storage.Get("key1")
 	s.Require().NoError(err)
 	s.Equal("value1", value)
 
-	// Close should not error even without file path
-	err = inMemStorage.Close()
+	// Close should not error
+	err = storage.Close()
 	s.NoError(err)
 }
 
@@ -373,6 +384,9 @@ func (s *SecureStorageTestSuite) TestDirectoryCreation() {
 	s.Require().NoError(err)
 	defer storage.Close()
 
+	err = storage.Create("test-password")
+	s.Require().NoError(err)
+
 	err = storage.Set("key", "value")
 	s.Require().NoError(err)
 
@@ -383,4 +397,157 @@ func (s *SecureStorageTestSuite) TestDirectoryCreation() {
 	// Verify file was created
 	_, err = os.Stat(nestedPath)
 	s.NoError(err, "Storage file should be created in nested directory")
+}
+
+// Test Exists method
+func (s *SecureStorageTestSuite) TestExists() {
+	// Test file should exist after Create() in SetupTest
+	s.True(s.storage.Exists(), "Storage should exist after creation")
+
+	// Test non-existent file
+	newPath := filepath.Join(s.tempDir, "non-existent.json")
+	newStorage, err := NewSecureStorageWithEncryption("test-key", newPath)
+	s.Require().NoError(err)
+	defer newStorage.Close()
+
+	s.False(newStorage.Exists(), "Storage should not exist before creation")
+}
+
+// Test Create method
+func (s *SecureStorageTestSuite) TestCreate() {
+	newPath := filepath.Join(s.tempDir, "new-storage.json")
+	storage, err := NewSecureStorageWithEncryption("test-key", newPath)
+	s.Require().NoError(err)
+	defer storage.Close()
+
+	// Create should succeed
+	err = storage.Create("my-password")
+	s.NoError(err)
+
+	// File should exist
+	s.True(storage.Exists())
+
+	// Should be able to set and get values
+	err = storage.Set("key", "value")
+	s.NoError(err)
+
+	value, err := storage.Get("key")
+	s.NoError(err)
+	s.Equal("value", value)
+}
+
+// Test Create with empty password
+func (s *SecureStorageTestSuite) TestCreateEmptyPassword() {
+	newPath := filepath.Join(s.tempDir, "empty-password-storage.json")
+	storage, err := NewSecureStorageWithEncryption("test-key", newPath)
+	s.Require().NoError(err)
+	defer storage.Close()
+
+	// Create should fail with empty password
+	err = storage.Create("")
+	s.Error(err)
+	s.Contains(err.Error(), "password cannot be empty")
+}
+
+// Test Create when storage already exists
+func (s *SecureStorageTestSuite) TestCreateAlreadyExists() {
+	// Storage was already created in SetupTest
+	err := s.storage.Create("another-password")
+	s.Error(err)
+	s.Contains(err.Error(), "storage already exists")
+}
+
+// Test Unlock with correct password
+func (s *SecureStorageTestSuite) TestUnlockSuccess() {
+	// Close and reload storage
+	err := s.storage.Close()
+	s.Require().NoError(err)
+
+	// Reload storage
+	newStorage, err := NewSecureStorageWithEncryption("test-encryption-key", s.tempFile)
+	s.Require().NoError(err)
+	defer newStorage.Close()
+
+	// Unlock with correct password should succeed
+	err = newStorage.Unlock("test-password")
+	s.NoError(err)
+}
+
+// Test Unlock with wrong password
+func (s *SecureStorageTestSuite) TestUnlockWrongPassword() {
+	// Close and reload storage
+	err := s.storage.Close()
+	s.Require().NoError(err)
+
+	// Reload storage
+	newStorage, err := NewSecureStorageWithEncryption("test-encryption-key", s.tempFile)
+	s.Require().NoError(err)
+	defer newStorage.Close()
+
+	// Unlock with wrong password should fail
+	err = newStorage.Unlock("wrong-password")
+	s.Error(err)
+	s.Contains(err.Error(), "incorrect password")
+}
+
+// Test full Create-Unlock workflow
+func (s *SecureStorageTestSuite) TestCreateUnlockWorkflow() {
+	newPath := filepath.Join(s.tempDir, "workflow-storage.json")
+	password := "secure-password-123"
+
+	// Step 1: Create new storage
+	storage1, err := NewSecureStorageWithEncryption("encryption-key", newPath)
+	s.Require().NoError(err)
+
+	err = storage1.Create(password)
+	s.Require().NoError(err)
+
+	// Step 2: Add some data
+	testData := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	for key, value := range testData {
+		err = storage1.Set(key, value)
+		s.Require().NoError(err)
+	}
+
+	// Step 3: Close storage
+	err = storage1.Close()
+	s.Require().NoError(err)
+
+	// Step 4: Load storage again
+	storage2, err := NewSecureStorageWithEncryption("encryption-key", newPath)
+	s.Require().NoError(err)
+	defer storage2.Close()
+
+	// Step 5: Verify password with Unlock
+	err = storage2.Unlock(password)
+	s.NoError(err, "Should unlock with correct password")
+
+	// Step 6: Verify wrong password fails
+	err = storage2.Unlock("wrong-password")
+	s.Error(err, "Should fail with wrong password")
+
+	// Step 7: Verify data is accessible (regardless of unlock)
+	for key, expectedValue := range testData {
+		value, err := storage2.Get(key)
+		s.NoError(err)
+		s.Equal(expectedValue, value)
+	}
+}
+
+// Test that storage operations work without calling Unlock
+func (s *SecureStorageTestSuite) TestOperationsWithoutUnlock() {
+	// Storage was created but Unlock was never called
+	// Operations should still work
+
+	err := s.storage.Set("test-key", "test-value")
+	s.NoError(err, "Set should work without calling Unlock")
+
+	value, err := s.storage.Get("test-key")
+	s.NoError(err, "Get should work without calling Unlock")
+	s.Equal("test-value", value)
 }

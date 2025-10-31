@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 )
 
 // MockView is a mock implementation of View for testing
@@ -353,7 +353,7 @@ func (suite *RouterTestSuite) TestMatchPatternExactMatch() {
 // TestMatchPatternComplexParams tests complex parameterized routes
 func (suite *RouterTestSuite) TestMatchPatternComplexParams() {
 	mockView := &MockView{name: "complex", viewContent: "Complex View"}
-	suite.router.AddRoute(Route{Path: "/api/:version/users/:userId/posts/:postId", Component: func(r Router, sharedMemory storage.SharedMemory	) View { return mockView }})
+	suite.router.AddRoute(Route{Path: "/api/:version/users/:userId/posts/:postId", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/api/v1/users/100/posts/200", nil)
 	assert.NoError(suite.T(), err)

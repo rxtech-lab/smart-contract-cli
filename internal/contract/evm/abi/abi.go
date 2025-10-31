@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,7 +39,7 @@ func ParseAbi(abi string) (AbiArray, error) {
 	return abiArray, nil
 }
 
-// ReadAbi reads an ABI from a local file path or download it from a remote source
+// ReadAbi reads an ABI from a local file path or download it from a remote source.
 func ReadAbi(filepath string) (AbiArray, error) {
 	// Check if filepath is a URL
 	if strings.HasPrefix(filepath, "http://") || strings.HasPrefix(filepath, "https://") {
@@ -54,8 +55,8 @@ func downloadAbi(url string) (AbiArray, error) {
 	// Create HTTP client
 	client := &http.Client{}
 
-	// Create request
-	req, err := http.NewRequest("GET", url, nil)
+	// Create request with context
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return nil, errors.WrapABIError(err, errors.ErrCodeABIParseFailed, fmt.Sprintf("failed to create request for URL: %s", url))
 	}

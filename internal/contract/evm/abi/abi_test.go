@@ -266,6 +266,7 @@ func TestParseAbi_RealWorldExample(t *testing.T) {
 	assert.Len(t, result[2].Inputs, 2)
 }
 
+//nolint:cyclop // Test function with table-driven tests
 func TestReadAbi(t *testing.T) {
 	tests := []struct {
 		name        string

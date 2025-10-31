@@ -11,11 +11,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+
+	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 )
 
 // SecureStorage is an interface for encrypted key-value storage.
 type SecureStorage interface {
+	// Exists checks if the storage exists.
+	Exists() bool
+	// Create creates the storage.
+	Create(password string) error
+	// Unlock unlocks the storage.
+	Unlock(password string) error
 	// Get retrieves and decrypts the value for a given key.
 	Get(key string) (value string, err error)
 	// Set encrypts and stores the value for a given key.
@@ -33,20 +42,29 @@ type SecureStorage interface {
 // SecureStorageWithEncryption implements SecureStorage using AES-GCM encryption.
 type SecureStorageWithEncryption struct {
 	encryptionKey []byte
-	data          map[string]string // stores encrypted values
+	passwordHash  string            // SHA-256 hash of the password
+	data          map[string]string // Stores encrypted values
 	filePath      string
 	mu            sync.RWMutex
 }
 
 // encryptedData represents the structure stored in the file.
 type encryptedData struct {
-	Data map[string]string `json:"data"`
+	PasswordHash string            `json:"password_hash"`
+	Data         map[string]string `json:"data"`
 }
 
 // NewSecureStorageWithEncryption creates a new encrypted storage instance.
-// encryptionKey: the key used for encryption (will be hashed to 32 bytes for AES-256).
-// filePath: optional file path for persistence (empty string for in-memory only).
+// EncryptionKey: the key used for encryption (will be hashed to 32 bytes for AES-256).
+// FilePath: optional file path for persistence (empty string uses default path from config).
 func NewSecureStorageWithEncryption(encryptionKey string, filePath string) (SecureStorage, error) {
+	// Use default path if not provided
+	if filePath == "" {
+		filePath = expandPath(config.DefaultSecureStoragePath)
+	} else {
+		filePath = expandPath(filePath)
+	}
+
 	// Derive a 32-byte key from the provided encryption key using SHA-256
 	hash := sha256.Sum256([]byte(encryptionKey))
 
@@ -56,17 +74,85 @@ func NewSecureStorageWithEncryption(encryptionKey string, filePath string) (Secu
 		filePath:      filePath,
 	}
 
-	// Load existing data if file path is provided
-	if filePath != "" {
+	// Load existing data if file exists
+	if _, err := os.Stat(filePath); err == nil {
 		if err := storage.load(); err != nil {
-			// If file doesn't exist, that's okay - we'll create it on first save
-			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("failed to load storage: %w", err)
-			}
+			return nil, fmt.Errorf("failed to load storage: %w", err)
 		}
 	}
 
 	return storage, nil
+}
+
+// expandPath expands the tilde (~) in file paths to the user's home directory.
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(homeDir, path[2:])
+		}
+	}
+	return path
+}
+
+// Exists checks if the storage file exists.
+func (s *SecureStorageWithEncryption) Exists() bool {
+	if s.filePath == "" {
+		return false
+	}
+	_, err := os.Stat(s.filePath)
+	return err == nil
+}
+
+// Create creates a new storage with the given password.
+func (s *SecureStorageWithEncryption) Create(password string) error {
+	if password == "" {
+		return fmt.Errorf("password cannot be empty")
+	}
+
+	// Check if storage already exists
+	if s.Exists() {
+		return fmt.Errorf("storage already exists at %s", s.filePath)
+	}
+
+	// Generate password hash
+	hash := sha256.Sum256([]byte(password))
+	s.passwordHash = fmt.Sprintf("%x", hash)
+
+	// Initialize empty data
+	s.mu.Lock()
+	s.data = make(map[string]string)
+	s.mu.Unlock()
+
+	// Save to disk
+	if s.filePath != "" {
+		if err := s.save(); err != nil {
+			return fmt.Errorf("failed to create storage: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// Unlock verifies the password against the stored password hash.
+func (s *SecureStorageWithEncryption) Unlock(password string) error {
+	// Load data if not already loaded
+	if s.filePath != "" && s.passwordHash == "" {
+		if err := s.load(); err != nil {
+			return fmt.Errorf("failed to load storage: %w", err)
+		}
+	}
+
+	// Hash the provided password
+	hash := sha256.Sum256([]byte(password))
+	providedHash := fmt.Sprintf("%x", hash)
+
+	// Compare with stored hash
+	if s.passwordHash != providedHash {
+		return fmt.Errorf("incorrect password")
+	}
+
+	return nil
 }
 
 // encrypt encrypts plaintext using AES-GCM.
@@ -224,8 +310,11 @@ func (s *SecureStorageWithEncryption) save() error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Marshal the data
-	ed := encryptedData{Data: s.data}
+	// Marshal the data with password hash
+	ed := encryptedData{
+		PasswordHash: s.passwordHash,
+		Data:         s.data,
+	}
 	jsonData, err := json.MarshalIndent(ed, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %w", err)
@@ -253,6 +342,7 @@ func (s *SecureStorageWithEncryption) load() error {
 	}
 
 	s.mu.Lock()
+	s.passwordHash = ed.PasswordHash
 	s.data = ed.Data
 	s.mu.Unlock()
 

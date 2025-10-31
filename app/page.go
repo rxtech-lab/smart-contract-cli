@@ -1,7 +1,12 @@
 package app
 
 import (
+	"fmt"
+
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
@@ -16,17 +21,53 @@ var options = []Option{
 }
 
 type Model struct {
-	router         view.Router
+	router       view.Router
+	sharedMemory storage.SharedMemory
+
+	isUnlocked     bool
 	selectedOption Option
 	selectedIndex  int
+
+	// Password prompt state
+	passwordInput *component.TextInput
+	errorMessage  string
+	secureStorage storage.SecureStorage
+	isCreatingNew bool
 }
 
-func NewPage(router view.Router) view.View {
-	return Model{
+func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
+	model := Model{
 		router:         router,
+		sharedMemory:   sharedMemory,
 		selectedOption: options[0],
 		selectedIndex:  0,
+		passwordInput: component.TextInputC().
+			Prompt("Password: ").
+			Placeholder("Enter password").
+			EchoMode(textinput.EchoPassword).
+			Focused(true),
 	}
+
+	// Check if already unlocked
+	if password, err := sharedMemory.Get("secure_storage_password"); err == nil && password != nil {
+		if pwd, ok := password.(string); ok && pwd != "" {
+			model.isUnlocked = true
+		}
+	}
+
+	// Initialize secure storage if not unlocked
+	if !model.isUnlocked {
+		var err error
+		model.secureStorage, err = storage.NewSecureStorageWithEncryption("smart-contract-cli-key", "")
+		if err == nil {
+			// Check if storage exists
+			if !model.secureStorage.Exists() {
+				model.isCreatingNew = true
+			}
+		}
+	}
+
+	return model
 }
 
 func (m Model) Init() tea.Cmd {
@@ -38,6 +79,12 @@ func (m Model) Help() (string, view.HelpDisplayOption) {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// If not unlocked, handle password input
+	if !m.isUnlocked {
+		return m.handlePasswordInput(msg)
+	}
+
+	// Normal navigation when unlocked
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
@@ -62,6 +109,93 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handlePasswordInput handles password input and unlock logic.
+func (m Model) handlePasswordInput(msg tea.Msg) (Model, tea.Cmd) {
+	if m.passwordInput == nil {
+		return m, nil
+	}
+
+	inputModel := m.passwordInput.GetModel()
+	var cmd tea.Cmd
+	inputModel, cmd = inputModel.Update(msg)
+
+	// Update the password input with new value
+	m.passwordInput = component.TextInputC().
+		Prompt("Password: ").
+		Placeholder("Enter password").
+		EchoMode(textinput.EchoPassword).
+		Focused(true).
+		Value(inputModel.Value())
+
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, cmd
+	}
+
+	switch keyMsg.String() {
+	case "enter":
+		return m.handlePasswordSubmit(inputModel.Value())
+	case "q", "ctrl+c":
+		return m, tea.Quit
+	}
+
+	return m, cmd
+}
+
+// handlePasswordSubmit processes the password submission and unlocks storage.
+func (m Model) handlePasswordSubmit(password string) (Model, tea.Cmd) {
+	if password == "" {
+		m.errorMessage = "Password cannot be empty"
+		return m, nil
+	}
+
+	if err := m.ensureSecureStorageInitialized(); err != nil {
+		m.errorMessage = fmt.Sprintf("Failed to initialize storage: %v", err)
+		return m, nil
+	}
+
+	if err := m.createStorageIfNeeded(password); err != nil {
+		m.errorMessage = fmt.Sprintf("Failed to create storage: %v", err)
+		return m, nil
+	}
+
+	if err := m.unlockAndStorePassword(password); err != nil {
+		m.errorMessage = fmt.Sprintf("Failed to unlock: %v", err)
+		return m, nil
+	}
+
+	m.isUnlocked = true
+	m.errorMessage = ""
+	return m, nil
+}
+
+// ensureSecureStorageInitialized initializes secure storage if not already done.
+func (m *Model) ensureSecureStorageInitialized() error {
+	if m.secureStorage != nil {
+		return nil
+	}
+
+	var err error
+	m.secureStorage, err = storage.NewSecureStorageWithEncryption("smart-contract-cli-key", "")
+	return err
+}
+
+// createStorageIfNeeded creates storage if it doesn't exist.
+func (m Model) createStorageIfNeeded(password string) error {
+	if m.secureStorage.Exists() {
+		return nil
+	}
+	return m.secureStorage.Create(password)
+}
+
+// unlockAndStorePassword unlocks storage and stores password in shared memory.
+func (m Model) unlockAndStorePassword(password string) error {
+	if err := m.secureStorage.Unlock(password); err != nil {
+		return err
+	}
+	return m.sharedMemory.Set("secure_storage_password", password)
+}
+
 func (m Model) moveUp(currentIndex int) int {
 	if currentIndex > 0 {
 		return currentIndex - 1
@@ -77,7 +211,50 @@ func (m Model) moveDown(currentIndex int) int {
 }
 
 func (m Model) View() string {
-	// Convert options to ListItems
+	if !m.isUnlocked {
+		return m.renderPasswordPrompt()
+	}
+	return m.renderMainMenu()
+}
+
+// renderPasswordPrompt renders the password input screen.
+func (m Model) renderPasswordPrompt() string {
+	promptText := m.getPasswordPromptText()
+
+	components := []component.Component{
+		component.T(promptText).Bold(true).Primary(),
+		component.SpacerV(1),
+	}
+
+	if m.passwordInput != nil {
+		components = append(components, m.passwordInput)
+	}
+
+	if m.errorMessage != "" {
+		components = append(components,
+			component.SpacerV(1),
+			component.T(m.errorMessage).Foreground(lipgloss.Color("1")), // Red color
+		)
+	}
+
+	components = append(components,
+		component.SpacerV(1),
+		component.T("Press Enter to submit, Ctrl+C to quit").Muted(),
+	)
+
+	return component.VStackC(components...).Render()
+}
+
+// getPasswordPromptText returns the appropriate prompt text based on state.
+func (m Model) getPasswordPromptText() string {
+	if m.isCreatingNew {
+		return "Create a password for secure storage:"
+	}
+	return "Enter password to unlock secure storage:"
+}
+
+// renderMainMenu renders the main blockchain selection menu.
+func (m Model) renderMainMenu() string {
 	items := make([]component.ListItem, len(options))
 	for i, opt := range options {
 		items[i] = component.Item(opt.Label, opt.Route, "")

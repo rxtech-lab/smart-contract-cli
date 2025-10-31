@@ -23,7 +23,7 @@ type RouterImplementation struct {
 	currentRoute     *routeEntry
 	navigationStack  []routeEntry
 	currentComponent View
-	pendingCmd       tea.Cmd                // Command to be returned from Update after navigation
+	pendingCmd       tea.Cmd // Command to be returned from Update after navigation
 	sharedMemory     storage.SharedMemory
 }
 

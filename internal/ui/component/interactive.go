@@ -290,6 +290,12 @@ func (t *TextInput) CharLimit(limit int) *TextInput {
 	return t
 }
 
+// EchoMode sets the echo mode for the input (useful for password fields).
+func (t *TextInput) EchoMode(mode textinput.EchoMode) *TextInput {
+	t.model.EchoMode = mode
+	return t
+}
+
 // Render renders the text input.
 func (t *TextInput) Render() string {
 	return t.style.Render(t.model.View())

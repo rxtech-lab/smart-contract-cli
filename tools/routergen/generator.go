@@ -132,9 +132,9 @@ func GenerateRoutesFile(routes []RouteDefinition, moduleName string) string {
 	for _, route := range routes {
 		// For root package, call NewPage() directly without package prefix
 		if route.PackagePath == appPackagePath {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r) }},\n", route.Path))
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r, sharedMemory) }},\n", route.Path))
 		} else {
-			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return %s.NewPage(r) }},\n",
+			sb.WriteString(fmt.Sprintf("\t\t{Path: %q, Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return %s.NewPage(r, sharedMemory) }},\n",
 				route.Path, route.PackageAlias))
 		}
 	}

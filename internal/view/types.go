@@ -1,7 +1,10 @@
 package view
 
-import tea "github.com/charmbracelet/bubbletea"
-import "github.com/rxtech-lab/smart-contract-cli/internal/storage"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
+)
 
 type HelpDisplayOption string
 
