@@ -32,12 +32,12 @@ type StorageOption struct {
 var storageOptions = []StorageOption{
 	{
 		Label:       "SQLite",
-		Value:       "sqlite",
+		Value:       config.StorageClientTypeSQLite,
 		Description: "Local file-based database",
 	},
 	{
 		Label:       "Postgres",
-		Value:       "postgres",
+		Value:       config.StorageClientTypePostgres,
 		Description: "PostgreSQL database server",
 	},
 }
