@@ -241,7 +241,7 @@ func (s *GeneratorTestSuite) TestGenerateRoutesFile_SingleRoute() {
 	// Root package should not be imported (to avoid circular import)
 	s.NotContains(code, `root_page "github.com/test/project/app"`)
 	// Root route should call NewPage() directly without package prefix
-	s.Contains(code, `{Path: "/", Component: func(r view.Router) view.View { return NewPage(r) }}`)
+	s.Contains(code, `{Path: "/", Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r, sharedMemory) }}`)
 }
 
 func (s *GeneratorTestSuite) TestGenerateRoutesFile_MultipleRoutes() {
@@ -274,9 +274,9 @@ func (s *GeneratorTestSuite) TestGenerateRoutesFile_MultipleRoutes() {
 	s.Contains(code, `users_id_page "github.com/test/project/app/users/id"`)
 
 	// Check route definitions - root route calls NewPage() directly
-	s.Contains(code, `{Path: "/", Component: func(r view.Router) view.View { return NewPage(r) }}`)
-	s.Contains(code, `{Path: "/users", Component: func(r view.Router) view.View { return users_page.NewPage(r) }}`)
-	s.Contains(code, `{Path: "/users/:id", Component: func(r view.Router) view.View { return users_id_page.NewPage(r) }}`)
+	s.Contains(code, `{Path: "/", Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return NewPage(r, sharedMemory) }}`)
+	s.Contains(code, `{Path: "/users", Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return users_page.NewPage(r, sharedMemory) }}`)
+	s.Contains(code, `{Path: "/users/:id", Component: func(r view.Router, sharedMemory storage.SharedMemory) view.View { return users_id_page.NewPage(r, sharedMemory) }}`)
 }
 
 func (s *GeneratorTestSuite) TestGenerateRoutesFile_HasCorrectStructure() {

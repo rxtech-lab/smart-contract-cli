@@ -17,12 +17,13 @@ e2e-network:
 
 test: e2e-network
 	@echo "Running tests..."
-	@go test ./...
+	@go test ./... || ($(MAKE) e2e-test-stop && exit 1)
 	@$(MAKE) e2e-test-stop
 
 e2e-test-stop:
 	@echo "Stopping Anvil network..."
-	pkill -f "anvil" || true
+	@pkill -9 -f "anvil" 2>/dev/null || true
+	@sleep 1
 
 fmt:
 	@echo "Formatting code..."

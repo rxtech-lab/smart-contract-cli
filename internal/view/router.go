@@ -59,12 +59,20 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return r, nil
 	}
 
-	// Store the current component before update to detect navigation
-	componentBeforeUpdate := r.currentComponent
+	// Track if navigation occurred during update
+	navigationOccurred := false
+
+	// Store a reference to check if navigation changed it
+	oldStackSize := len(r.navigationStack)
 
 	updatedModel, cmd := r.currentComponent.Update(msg)
 
-	// Check if navigation occurred (which might have set a pendingCmd)
+	// Check if navigation occurred (stack size changed or pendingCmd set)
+	if len(r.navigationStack) != oldStackSize || r.pendingCmd != nil {
+		navigationOccurred = true
+	}
+
+	// If pending command exists, return it immediately
 	if r.pendingCmd != nil {
 		pendingCmd := r.pendingCmd
 		r.pendingCmd = nil
@@ -72,8 +80,7 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Only update currentComponent if navigation didn't occur
-	// (navigation changes currentComponent, so we shouldn't overwrite it)
-	if r.currentComponent == componentBeforeUpdate {
+	if !navigationOccurred {
 		if view, ok := updatedModel.(View); ok {
 			r.currentComponent = view
 		}

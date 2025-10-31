@@ -568,3 +568,162 @@ func (s *ComponentTestSuite) TestStyleApplication() {
 	rendered := text.Render()
 	s.NotEmpty(rendered)
 }
+
+// Test List with highlighting
+func (s *ComponentTestSuite) TestListWithHighlighting() {
+	items := []ListItem{
+		Item("SQLite", "sqlite", "Local database"),
+		Item("Postgres", "postgres", "Remote database"),
+		Item("MySQL", "mysql", "Another database"),
+	}
+
+	list := NewList(items).
+		Highlighted("postgres"). // Highlight postgres as active
+		Selected("mysql")        // Select mysql with cursor
+
+	rendered := list.Render()
+
+	// Should contain all items
+	s.Contains(rendered, "SQLite")
+	s.Contains(rendered, "Postgres")
+	s.Contains(rendered, "MySQL")
+
+	// Should contain the highlighted marker
+	s.Contains(rendered, "★")
+}
+
+func (s *ComponentTestSuite) TestListHighlightedOnly() {
+	items := []ListItem{
+		Item("Item 1", "1", ""),
+		Item("Item 2", "2", ""),
+		Item("Item 3", "3", ""),
+	}
+
+	// Highlight item 2 but don't select anything
+	list := NewList(items).Highlighted("2")
+	rendered := list.Render()
+
+	// Should contain all items
+	s.Contains(rendered, "Item 1")
+	s.Contains(rendered, "Item 2")
+	s.Contains(rendered, "Item 3")
+
+	// Should contain the highlighted marker for item 2
+	s.Contains(rendered, "★")
+}
+
+func (s *ComponentTestSuite) TestListMultipleHighlighted() {
+	items := []ListItem{
+		Item("Item 1", "1", ""),
+		Item("Item 2", "2", ""),
+		Item("Item 3", "3", ""),
+		Item("Item 4", "4", ""),
+	}
+
+	// Highlight multiple items
+	list := NewList(items).Highlighted("1", "3")
+	rendered := list.Render()
+
+	// Should contain all items
+	s.Contains(rendered, "Item 1")
+	s.Contains(rendered, "Item 2")
+	s.Contains(rendered, "Item 3")
+	s.Contains(rendered, "Item 4")
+
+	// Counting occurrences of ★ symbol
+	count := strings.Count(rendered, "★")
+	s.Equal(2, count, "Should have exactly 2 highlighted markers")
+}
+
+func (s *ComponentTestSuite) TestListHighlightedWithDescription() {
+	items := []ListItem{
+		Item("SQLite", "sqlite", "Path: /data/db.sqlite"),
+		Item("Postgres", "postgres", "URL: postgres://localhost"),
+	}
+
+	list := NewList(items).
+		Highlighted("sqlite").
+		ShowDescription(true)
+
+	rendered := list.Render()
+
+	// Should show description for highlighted item even if not selected
+	s.Contains(rendered, "Path: /data/db.sqlite")
+	s.NotContains(rendered, "URL: postgres://localhost")
+}
+
+func (s *ComponentTestSuite) TestListCustomHighlightedPrefix() {
+	items := []ListItem{
+		Item("Item 1", "1", ""),
+		Item("Item 2", "2", ""),
+	}
+
+	list := NewList(items).
+		Highlighted("1").
+		HighlightedPrefix("✓ ")
+
+	rendered := list.Render()
+
+	// Should contain custom highlighted prefix
+	s.Contains(rendered, "✓")
+	// Should not contain default star
+	s.NotContains(rendered, "★")
+}
+
+func (s *ComponentTestSuite) TestListHighlightedStyle() {
+	items := []ListItem{
+		Item("Item 1", "1", ""),
+		Item("Item 2", "2", ""),
+	}
+
+	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
+	list := NewList(items).
+		Highlighted("1").
+		HighlightedStyle(customStyle)
+
+	rendered := list.Render()
+
+	// Should contain the item
+	s.Contains(rendered, "Item 1")
+	// Just verify it renders without error
+	s.NotEmpty(rendered)
+}
+
+func (s *ComponentTestSuite) TestListSelectedStyle() {
+	items := []ListItem{
+		Item("Item 1", "1", ""),
+		Item("Item 2", "2", ""),
+	}
+
+	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")) // Pink
+	list := NewList(items).
+		Selected("2").
+		SelectedStyle(customStyle)
+
+	rendered := list.Render()
+
+	// Should contain the item
+	s.Contains(rendered, "Item 2")
+	// Just verify it renders without error
+	s.NotEmpty(rendered)
+}
+
+func (s *ComponentTestSuite) TestListSelectedAndHighlighted() {
+	items := []ListItem{
+		Item("SQLite", "sqlite", "Local database"),
+		Item("Postgres", "postgres", "Remote database"),
+	}
+
+	list := NewList(items).
+		Selected("sqlite").    // Cursor on SQLite
+		Highlighted("sqlite"). // SQLite is also active
+		ShowDescription(true)
+
+	rendered := list.Render()
+
+	// Should contain both item and description
+	s.Contains(rendered, "SQLite")
+	s.Contains(rendered, "Local database")
+	// Should contain highlighted marker
+	s.Contains(rendered, "★")
+}

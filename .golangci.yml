@@ -134,6 +134,11 @@ linters-settings:
       - github.com/rxtech-lab/smart-contract-cli/*
 
 issues:
+  exclude-dirs:
+    - vendor
+    - third_party
+  exclude-files:
+    - ".*\\.pb\\.go$"
   exclude-rules:
     # Exclude some linters from running on tests files
     - path: _test\.go

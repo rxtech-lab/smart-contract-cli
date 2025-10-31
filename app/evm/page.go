@@ -21,10 +21,11 @@ type Option struct {
 }
 
 var options = []Option{
-	{Label: "Storage Client", Value: "storage-client", Route: "/evm/storage-client", Description: "Manage the storage of the contract"},
-	{Label: "Abi Management", Value: "abi-management", Route: "/evm/abi-management", Description: "Manage the ABI of the contract"},
+	{Label: "Storage Client", Value: "storage-client", Route: "/evm/storage", Description: "Manage the storage of the contract"},
+	{Label: "Abi Management", Value: "abi-management", Route: "/evm/abi", Description: "Manage the ABI of the contract"},
 	{Label: "Contract Management", Value: "contract-management", Route: "/evm/contract-management", Description: "Manage the contract of the contract"},
 	{Label: "Endpoint Management", Value: "endpoint-management", Route: "/evm/endpoint-management", Description: "Manage the endpoint of the contract"},
+	{Label: "Wallet Functions", Value: "wallet-functions", Route: "/evm/wallet-functions", Description: "Manage the wallet functions of the contract"},
 }
 
 func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {

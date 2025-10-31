@@ -36,11 +36,15 @@ func Item(label, value, description string) ListItem {
 type List struct {
 	items              []ListItem
 	selectedValue      string
-	renderItem         func(item ListItem, isSelected bool) Component
+	highlightedValues  []string
+	renderItem         func(item ListItem, isSelected bool, isHighlighted bool) Component
 	selectedPrefix     string
 	unselectedPrefix   string
+	highlightedPrefix  string
 	spacing            int
 	style              lipgloss.Style
+	selectedStyle      lipgloss.Style
+	highlightedStyle   lipgloss.Style
 	showDescription    bool
 	descriptionStyle   lipgloss.Style
 	descriptionSpacing int
@@ -51,11 +55,15 @@ func NewList(items []ListItem) *List {
 	return &List{
 		items:              items,
 		selectedValue:      "",
+		highlightedValues:  []string{},
 		renderItem:         nil,
 		selectedPrefix:     "> ",
 		unselectedPrefix:   "  ",
+		highlightedPrefix:  "★ ",
 		spacing:            0,
 		style:              lipgloss.NewStyle(),
+		selectedStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color("51")),            // Cyan
+		highlightedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true), // Green + Bold
 		showDescription:    false,
 		descriptionStyle:   lipgloss.NewStyle().Faint(true),
 		descriptionSpacing: 0,
@@ -85,6 +93,30 @@ func (l *List) UnselectedPrefix(prefix string) *List {
 	return l
 }
 
+// HighlightedPrefix sets the prefix for highlighted items.
+func (l *List) HighlightedPrefix(prefix string) *List {
+	l.highlightedPrefix = prefix
+	return l
+}
+
+// Highlighted marks certain items as highlighted/active by their values.
+func (l *List) Highlighted(values ...string) *List {
+	l.highlightedValues = values
+	return l
+}
+
+// SelectedStyle sets the style for cursor-selected items.
+func (l *List) SelectedStyle(style lipgloss.Style) *List {
+	l.selectedStyle = style
+	return l
+}
+
+// HighlightedStyle sets the style for highlighted/active items.
+func (l *List) HighlightedStyle(style lipgloss.Style) *List {
+	l.highlightedStyle = style
+	return l
+}
+
 // Spacing sets the vertical spacing between items.
 func (l *List) Spacing(spacing int) *List {
 	l.spacing = spacing
@@ -93,7 +125,7 @@ func (l *List) Spacing(spacing int) *List {
 
 // RenderItem sets a custom renderer for list items.
 // If not set, uses the default renderer with prefixes and labels.
-func (l *List) RenderItem(fn func(item ListItem, isSelected bool) Component) *List {
+func (l *List) RenderItem(fn func(item ListItem, isSelected bool, isHighlighted bool) Component) *List {
 	l.renderItem = fn
 	return l
 }
@@ -132,7 +164,8 @@ func (l *List) Render() string {
 
 	for _, item := range l.items {
 		isSelected := item.GetValue() == l.selectedValue
-		itemComponent := l.renderListItem(item, isSelected)
+		isHighlighted := l.isHighlighted(item.GetValue())
+		itemComponent := l.renderListItem(item, isSelected, isHighlighted)
 		components = append(components, itemComponent)
 	}
 
@@ -141,39 +174,83 @@ func (l *List) Render() string {
 	return l.style.Render(result)
 }
 
+// isHighlighted checks if an item value is in the highlighted list.
+func (l *List) isHighlighted(value string) bool {
+	for _, hv := range l.highlightedValues {
+		if hv == value {
+			return true
+		}
+	}
+	return false
+}
+
 // renderListItem renders a single list item.
-func (l *List) renderListItem(item ListItem, isSelected bool) Component {
+func (l *List) renderListItem(item ListItem, isSelected bool, isHighlighted bool) Component {
 	var itemComponent Component
 	if l.renderItem != nil {
-		itemComponent = l.renderItem(item, isSelected)
+		itemComponent = l.renderItem(item, isSelected, isHighlighted)
 	} else {
-		itemComponent = l.renderDefaultItem(item, isSelected)
+		itemComponent = l.renderDefaultItem(item, isSelected, isHighlighted)
 	}
 
-	if l.showDescription && isSelected {
-		itemComponent = l.addDescription(itemComponent, item)
+	if l.showDescription && (isSelected || isHighlighted) {
+		itemComponent = l.addDescription(itemComponent, item, isHighlighted)
 	}
 
 	return itemComponent
 }
 
 // renderDefaultItem renders an item using the default renderer.
-func (l *List) renderDefaultItem(item ListItem, isSelected bool) Component {
+func (l *List) renderDefaultItem(item ListItem, isSelected bool, isHighlighted bool) Component {
+	// Determine prefix based on selection state
 	prefix := l.unselectedPrefix
 	if isSelected {
 		prefix = l.selectedPrefix
 	}
-	return T(prefix + item.GetLabel())
+
+	label := item.GetLabel()
+
+	// Build the text with prefix
+	text := prefix + label
+
+	// Add highlighted marker if highlighted
+	if isHighlighted {
+		text = text + " " + l.highlightedPrefix
+	}
+
+	// Create text component
+	textComp := T(text)
+
+	// Apply styles based on state priority
+	if isSelected && isHighlighted {
+		// Both: combine styles (selected background + highlighted foreground)
+		combinedStyle := l.selectedStyle.Inherit(l.highlightedStyle)
+		textComp = textComp.WithStyle(combinedStyle)
+	} else if isSelected {
+		// Only selected: use selected style
+		textComp = textComp.WithStyle(l.selectedStyle)
+	} else if isHighlighted {
+		// Only highlighted: use highlighted style
+		textComp = textComp.WithStyle(l.highlightedStyle)
+	}
+
+	return textComp
 }
 
 // addDescription adds a description below the item component.
-func (l *List) addDescription(itemComponent Component, item ListItem) Component {
+func (l *List) addDescription(itemComponent Component, item ListItem, isHighlighted bool) Component {
 	description := item.GetDescription()
 	if description == "" {
 		return itemComponent
 	}
 
-	descComponent := NewText(description).WithStyle(l.descriptionStyle)
+	descStyle := l.descriptionStyle
+	// Apply highlighted style to description if item is highlighted
+	if isHighlighted {
+		descStyle = l.highlightedStyle.Faint(true)
+	}
+
+	descComponent := NewText(description).WithStyle(descStyle)
 	prefixPadding := l.createPrefixPadding()
 	descWithPadding := HStackC(T(prefixPadding), descComponent)
 

@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
@@ -193,7 +194,7 @@ func (m Model) unlockAndStorePassword(password string) error {
 	if err := m.secureStorage.Unlock(password); err != nil {
 		return err
 	}
-	return m.sharedMemory.Set("secure_storage_password", password)
+	return m.sharedMemory.Set(config.SecureStoragePasswordKey, password)
 }
 
 func (m Model) moveUp(currentIndex int) int {
