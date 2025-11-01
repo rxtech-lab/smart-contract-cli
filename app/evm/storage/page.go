@@ -32,12 +32,12 @@ type StorageOption struct {
 var storageOptions = []StorageOption{
 	{
 		Label:       "SQLite",
-		Value:       "sqlite",
+		Value:       config.StorageClientTypeSQLite,
 		Description: "Local file-based database",
 	},
 	{
 		Label:       "Postgres",
-		Value:       "postgres",
+		Value:       config.StorageClientTypePostgres,
 		Description: "PostgreSQL database server",
 	},
 }
@@ -103,10 +103,10 @@ func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
 	}
 
 	// Create text input for later use
-	ti := textinput.New()
-	ti.Focus()
-	ti.CharLimit = 256
-	ti.Width = 50
+	textInput := textinput.New()
+	textInput.Focus()
+	textInput.CharLimit = 256
+	textInput.Width = 50
 
 	model := Model{
 		router:        router,
@@ -115,7 +115,7 @@ func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
 		options:       storageOptions,
 		selectedIndex: 0,
 		inputMode:     InputModeNone,
-		textInput:     ti,
+		textInput:     textInput,
 		confirmOptions: []string{
 			"Use existing configuration",
 			"Change configuration",
@@ -227,9 +227,10 @@ func (m Model) handleInputSubmit() Model {
 		return m
 	}
 
-	if m.inputMode == InputModeSqlitePath {
+	switch m.inputMode {
+	case InputModeSqlitePath:
 		return m.saveSQLiteConfiguration(value)
-	} else if m.inputMode == InputModePostgresURL {
+	case InputModePostgresURL:
 		return m.savePostgresConfiguration(value)
 	}
 	return m
@@ -312,11 +313,12 @@ func (m Model) useExistingConfiguration(clientType string) Model {
 }
 
 func (m Model) changeConfiguration(clientType string) Model {
-	if clientType == "sqlite" {
+	switch clientType {
+	case "sqlite":
 		m.inputMode = InputModeSqlitePath
 		m.textInput.SetValue(m.sqlitePath)
 		m.textInput.Placeholder = "Enter SQLite file path"
-	} else if clientType == "postgres" {
+	case "postgres":
 		m.inputMode = InputModePostgresURL
 		m.textInput.SetValue(m.postgresURL)
 		m.textInput.Placeholder = "Enter PostgreSQL connection URL"
@@ -333,9 +335,10 @@ func (m Model) removeConfiguration(clientType string) Model {
 		return m
 	}
 
-	if clientType == "sqlite" {
+	switch clientType {
+	case "sqlite":
 		m.sqlitePath = ""
-	} else if clientType == "postgres" {
+	case "postgres":
 		m.postgresURL = ""
 	}
 
@@ -366,9 +369,10 @@ func (m *Model) handleClientSelection() {
 
 	// Check if configuration exists
 	var hasConfig bool
-	if selectedOption.Value == "sqlite" {
+	switch selectedOption.Value {
+	case "sqlite":
 		hasConfig = m.sqlitePath != ""
-	} else if selectedOption.Value == "postgres" {
+	case "postgres":
 		hasConfig = m.postgresURL != ""
 	}
 
@@ -378,11 +382,12 @@ func (m *Model) handleClientSelection() {
 		m.confirmIndex = 0
 	} else {
 		// Show input dialog
-		if selectedOption.Value == "sqlite" {
+		switch selectedOption.Value {
+		case "sqlite":
 			m.inputMode = InputModeSqlitePath
 			m.textInput.SetValue("")
 			m.textInput.Placeholder = "Enter SQLite file path (e.g., ~/.smart-contract-cli/data.db)"
-		} else if selectedOption.Value == "postgres" {
+		case "postgres":
 			m.inputMode = InputModePostgresURL
 			m.textInput.SetValue("")
 			m.textInput.Placeholder = "Enter PostgreSQL URL (e.g., postgres://user:pass@localhost:5432/db)"
@@ -398,20 +403,24 @@ func (m *Model) saveStorageClient(clientType string, value string) error {
 
 	// Save the value
 	var key string
-	if clientType == "sqlite" {
+	switch clientType {
+	case "sqlite":
 		key = config.StorageKeySqlitePathKey
-	} else if clientType == "postgres" {
+	case "postgres":
 		key = config.StorageKeyPostgresURLKey
-	} else {
+	default:
 		return fmt.Errorf("invalid client type: %s", clientType)
 	}
 
 	if err := m.secureStorage.Set(key, value); err != nil {
-		return err
+		return fmt.Errorf("failed to save storage client configuration: %w", err)
 	}
 
 	// Save as active client
-	return m.secureStorage.Set(config.StorageKeyTypeKey, clientType)
+	if err := m.secureStorage.Set(config.StorageKeyTypeKey, clientType); err != nil {
+		return fmt.Errorf("failed to set active storage client: %w", err)
+	}
+	return nil
 }
 
 // switchActiveClient switches the active storage client.
@@ -419,7 +428,10 @@ func (m *Model) switchActiveClient(clientType string) error {
 	if m.secureStorage == nil {
 		return fmt.Errorf("secure storage not initialized")
 	}
-	return m.secureStorage.Set(config.StorageKeyTypeKey, clientType)
+	if err := m.secureStorage.Set(config.StorageKeyTypeKey, clientType); err != nil {
+		return fmt.Errorf("failed to switch active storage client: %w", err)
+	}
+	return nil
 }
 
 // removeStorageClient removes a storage client configuration.
@@ -428,16 +440,21 @@ func (m *Model) removeStorageClient(clientType string) error {
 		return fmt.Errorf("secure storage not initialized")
 	}
 
+	// Determine which key to delete
 	var key string
-	if clientType == "sqlite" {
+	switch clientType {
+	case "sqlite":
 		key = config.StorageKeySqlitePathKey
-	} else if clientType == "postgres" {
+	case "postgres":
 		key = config.StorageKeyPostgresURLKey
-	} else {
+	default:
 		return fmt.Errorf("invalid client type: %s", clientType)
 	}
 
-	return m.secureStorage.Delete(key)
+	if err := m.secureStorage.Delete(key); err != nil {
+		return fmt.Errorf("failed to delete storage client configuration: %w", err)
+	}
+	return nil
 }
 
 // maskPostgresURL masks the password in a Postgres URL for display.
@@ -463,11 +480,12 @@ func maskPostgresURL(url string) string {
 }
 
 func (m Model) Help() (string, view.HelpDisplayOption) {
-	if m.inputMode == InputModeNone {
+	switch m.inputMode {
+	case InputModeNone:
 		return "↑/k: up • ↓/j: down • enter: select • esc/q: back", view.HelpDisplayOptionAppend
-	} else if m.inputMode == InputModeSqlitePath || m.inputMode == InputModePostgresURL {
+	case InputModeSqlitePath, InputModePostgresURL:
 		return "enter: save • esc: cancel", view.HelpDisplayOptionAppend
-	} else if m.inputMode == InputModeConfirmation {
+	case InputModeConfirmation:
 		return "↑/k: up • ↓/j: down • enter: confirm • esc: cancel", view.HelpDisplayOptionAppend
 	}
 	return "", view.HelpDisplayOptionAppend
@@ -486,9 +504,10 @@ func (m Model) View() string {
 	}
 
 	// Input mode - show text input
-	if m.inputMode == InputModeSqlitePath {
+	switch m.inputMode {
+	case InputModeSqlitePath:
 		return m.renderInputView("Configure SQLite", "Enter the path for your SQLite database file:")
-	} else if m.inputMode == InputModePostgresURL {
+	case InputModePostgresURL:
 		return m.renderInputView("Configure Postgres", "Enter the PostgreSQL connection URL:")
 	}
 
@@ -518,9 +537,10 @@ func (m Model) renderInputView(title string, prompt string) string {
 func (m Model) renderConfirmationView() string {
 	selectedOption := m.options[m.selectedIndex]
 	currentValue := ""
-	if selectedOption.Value == "sqlite" {
+	switch selectedOption.Value {
+	case "sqlite":
 		currentValue = m.sqlitePath
-	} else if selectedOption.Value == "postgres" {
+	case "postgres":
 		currentValue = maskPostgresURL(m.postgresURL)
 	}
 
@@ -549,7 +569,7 @@ func (m Model) renderConfirmationView() string {
 func (m Model) renderNormalView() string {
 	// Build list items with descriptions
 	items := make([]component.ListItem, len(m.options))
-	for i, opt := range m.options {
+	for idx, opt := range m.options {
 		desc := opt.Description
 
 		// Add stored path/URL to description if available
@@ -559,7 +579,7 @@ func (m Model) renderNormalView() string {
 			desc = desc + "\nURL: " + maskPostgresURL(m.postgresURL)
 		}
 
-		items[i] = component.Item(opt.Label, opt.Value, desc)
+		items[idx] = component.Item(opt.Label, opt.Value, desc)
 	}
 
 	// Highlight the active client

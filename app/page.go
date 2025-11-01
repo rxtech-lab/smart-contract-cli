@@ -178,7 +178,10 @@ func (m *Model) ensureSecureStorageInitialized() error {
 
 	var err error
 	m.secureStorage, err = storage.NewSecureStorageWithEncryption("smart-contract-cli-key", "")
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create secure storage: %w", err)
+	}
+	return nil
 }
 
 // createStorageIfNeeded creates storage if it doesn't exist.
@@ -186,15 +189,21 @@ func (m Model) createStorageIfNeeded(password string) error {
 	if m.secureStorage.Exists() {
 		return nil
 	}
-	return m.secureStorage.Create(password)
+	if err := m.secureStorage.Create(password); err != nil {
+		return fmt.Errorf("failed to create storage: %w", err)
+	}
+	return nil
 }
 
 // unlockAndStorePassword unlocks storage and stores password in shared memory.
 func (m Model) unlockAndStorePassword(password string) error {
 	if err := m.secureStorage.Unlock(password); err != nil {
-		return err
+		return fmt.Errorf("failed to unlock storage: %w", err)
 	}
-	return m.sharedMemory.Set(config.SecureStoragePasswordKey, password)
+	if err := m.sharedMemory.Set(config.SecureStoragePasswordKey, password); err != nil {
+		return fmt.Errorf("failed to store password in shared memory: %w", err)
+	}
+	return nil
 }
 
 func (m Model) moveUp(currentIndex int) int {

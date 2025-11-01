@@ -22,7 +22,7 @@ func (s *SharedMemoryTestSuite) TearDownTest() {
 	s.Require().NoError(err)
 }
 
-// TestNewSharedMemory tests the constructor
+// TestNewSharedMemory tests the constructor.
 func (s *SharedMemoryTestSuite) TestNewSharedMemory() {
 	storage := NewSharedMemory()
 	s.NotNil(storage)
@@ -32,7 +32,7 @@ func (s *SharedMemoryTestSuite) TestNewSharedMemory() {
 	s.Empty(keys)
 }
 
-// TestSetAndGet tests basic set and get operations
+// TestSetAndGet tests basic set and get operations.
 func (s *SharedMemoryTestSuite) TestSetAndGet() {
 	err := s.storage.Set("key1", "value1")
 	s.NoError(err)
@@ -42,14 +42,14 @@ func (s *SharedMemoryTestSuite) TestSetAndGet() {
 	s.Equal("value1", value)
 }
 
-// TestGetNonExistentKey tests getting a key that doesn't exist
+// TestGetNonExistentKey tests getting a key that doesn't exist.
 func (s *SharedMemoryTestSuite) TestGetNonExistentKey() {
 	value, err := s.storage.Get("nonexistent")
 	s.NoError(err)
 	s.Nil(value)
 }
 
-// TestSetMultipleKeys tests setting multiple keys
+// TestSetMultipleKeys tests setting multiple keys.
 func (s *SharedMemoryTestSuite) TestSetMultipleKeys() {
 	err := s.storage.Set("key1", "value1")
 	s.NoError(err)
@@ -73,7 +73,7 @@ func (s *SharedMemoryTestSuite) TestSetMultipleKeys() {
 	s.Equal(true, value3)
 }
 
-// TestSetOverwriteExistingKey tests overwriting an existing key
+// TestSetOverwriteExistingKey tests overwriting an existing key.
 func (s *SharedMemoryTestSuite) TestSetOverwriteExistingKey() {
 	err := s.storage.Set("key1", "original")
 	s.NoError(err)
@@ -86,7 +86,7 @@ func (s *SharedMemoryTestSuite) TestSetOverwriteExistingKey() {
 	s.Equal("updated", value)
 }
 
-// TestDelete tests deleting a key
+// TestDelete tests deleting a key.
 func (s *SharedMemoryTestSuite) TestDelete() {
 	err := s.storage.Set("key1", "value1")
 	s.NoError(err)
@@ -99,13 +99,13 @@ func (s *SharedMemoryTestSuite) TestDelete() {
 	s.Nil(value)
 }
 
-// TestDeleteNonExistentKey tests deleting a key that doesn't exist
+// TestDeleteNonExistentKey tests deleting a key that doesn't exist.
 func (s *SharedMemoryTestSuite) TestDeleteNonExistentKey() {
 	err := s.storage.Delete("nonexistent")
 	s.NoError(err)
 }
 
-// TestList tests listing all keys
+// TestList tests listing all keys.
 func (s *SharedMemoryTestSuite) TestList() {
 	err := s.storage.Set("key1", "value1")
 	s.NoError(err)
@@ -124,14 +124,14 @@ func (s *SharedMemoryTestSuite) TestList() {
 	s.Contains(keys, "key3")
 }
 
-// TestListEmpty tests listing when storage is empty
+// TestListEmpty tests listing when storage is empty.
 func (s *SharedMemoryTestSuite) TestListEmpty() {
 	keys, err := s.storage.List()
 	s.NoError(err)
 	s.Empty(keys)
 }
 
-// TestClear tests clearing all data
+// TestClear tests clearing all data.
 func (s *SharedMemoryTestSuite) TestClear() {
 	err := s.storage.Set("key1", "value1")
 	s.NoError(err)
@@ -151,7 +151,7 @@ func (s *SharedMemoryTestSuite) TestClear() {
 	s.Nil(value)
 }
 
-// TestClearEmpty tests clearing when already empty
+// TestClearEmpty tests clearing when already empty.
 func (s *SharedMemoryTestSuite) TestClearEmpty() {
 	err := s.storage.Clear()
 	s.NoError(err)
@@ -161,7 +161,7 @@ func (s *SharedMemoryTestSuite) TestClearEmpty() {
 	s.Empty(keys)
 }
 
-// TestDifferentValueTypes tests storing different types of values
+// TestDifferentValueTypes tests storing different types of values.
 func (s *SharedMemoryTestSuite) TestDifferentValueTypes() {
 	// String
 	err := s.storage.Set("string", "hello")
@@ -218,28 +218,28 @@ func (s *SharedMemoryTestSuite) TestDifferentValueTypes() {
 	s.Equal(TestStruct{Name: "John", Age: 30}, structVal)
 }
 
-// TestConcurrentAccess tests concurrent read/write operations
+// TestConcurrentAccess tests concurrent read/write operations.
 func (s *SharedMemoryTestSuite) TestConcurrentAccess() {
 	const numGoroutines = 100
 	const numOperations = 10
 
-	var wg sync.WaitGroup
+	var waitGroup sync.WaitGroup
 
 	// Concurrent writes
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
+	for index := 0; index < numGoroutines; index++ {
+		waitGroup.Add(1)
 		go func(id int) {
-			defer wg.Done()
+			defer waitGroup.Done()
 			for j := 0; j < numOperations; j++ {
 				key := "key_" + string(rune(id))
 				value := id*numOperations + j
 				err := s.storage.Set(key, value)
 				s.NoError(err)
 			}
-		}(i)
+		}(index)
 	}
 
-	wg.Wait()
+	waitGroup.Wait()
 
 	// Verify some data was written
 	keys, err := s.storage.List()
@@ -247,7 +247,7 @@ func (s *SharedMemoryTestSuite) TestConcurrentAccess() {
 	s.NotEmpty(keys)
 }
 
-// TestConcurrentReadWrite tests concurrent reads and writes
+// TestConcurrentReadWrite tests concurrent reads and writes.
 func (s *SharedMemoryTestSuite) TestConcurrentReadWrite() {
 	// Pre-populate with some data
 	for i := 0; i < 10; i++ {
@@ -256,31 +256,31 @@ func (s *SharedMemoryTestSuite) TestConcurrentReadWrite() {
 	}
 
 	const numGoroutines = 50
-	var wg sync.WaitGroup
+	var waitGroup sync.WaitGroup
 
 	// Concurrent reads
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
+	for index := 0; index < numGoroutines; index++ {
+		waitGroup.Add(1)
 		go func(id int) {
-			defer wg.Done()
+			defer waitGroup.Done()
 			key := "key_" + string(rune(id%10))
 			_, err := s.storage.Get(key)
 			s.NoError(err)
-		}(i)
+		}(index)
 	}
 
 	// Concurrent writes
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
+	for index := 0; index < numGoroutines; index++ {
+		waitGroup.Add(1)
 		go func(id int) {
-			defer wg.Done()
+			defer waitGroup.Done()
 			key := "new_key_" + string(rune(id))
 			err := s.storage.Set(key, id)
 			s.NoError(err)
-		}(i)
+		}(index)
 	}
 
-	wg.Wait()
+	waitGroup.Wait()
 
 	// Verify storage is still functional
 	keys, err := s.storage.List()
@@ -288,7 +288,7 @@ func (s *SharedMemoryTestSuite) TestConcurrentReadWrite() {
 	s.NotEmpty(keys)
 }
 
-// TestConcurrentDelete tests concurrent delete operations
+// TestConcurrentDelete tests concurrent delete operations.
 func (s *SharedMemoryTestSuite) TestConcurrentDelete() {
 	// Pre-populate with data
 	for i := 0; i < 100; i++ {
@@ -296,20 +296,20 @@ func (s *SharedMemoryTestSuite) TestConcurrentDelete() {
 		s.NoError(err)
 	}
 
-	var wg sync.WaitGroup
+	var waitGroup sync.WaitGroup
 
 	// Concurrent deletes
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
+	for index := 0; index < 100; index++ {
+		waitGroup.Add(1)
 		go func(id int) {
-			defer wg.Done()
+			defer waitGroup.Done()
 			key := "key_" + string(rune(id))
 			err := s.storage.Delete(key)
 			s.NoError(err)
-		}(i)
+		}(index)
 	}
 
-	wg.Wait()
+	waitGroup.Wait()
 
 	// Verify all keys are deleted
 	keys, err := s.storage.List()
@@ -317,7 +317,7 @@ func (s *SharedMemoryTestSuite) TestConcurrentDelete() {
 	s.Empty(keys)
 }
 
-// TestConcurrentList tests concurrent list operations
+// TestConcurrentList tests concurrent list operations.
 func (s *SharedMemoryTestSuite) TestConcurrentList() {
 	// Pre-populate with data
 	for i := 0; i < 10; i++ {
@@ -325,23 +325,23 @@ func (s *SharedMemoryTestSuite) TestConcurrentList() {
 		s.NoError(err)
 	}
 
-	var wg sync.WaitGroup
+	var waitGroup sync.WaitGroup
 
 	// Concurrent list operations
 	for i := 0; i < 50; i++ {
-		wg.Add(1)
+		waitGroup.Add(1)
 		go func() {
-			defer wg.Done()
+			defer waitGroup.Done()
 			keys, err := s.storage.List()
 			s.NoError(err)
 			s.NotEmpty(keys)
 		}()
 	}
 
-	wg.Wait()
+	waitGroup.Wait()
 }
 
-// TestNilValue tests storing nil values
+// TestNilValue tests storing nil values.
 func (s *SharedMemoryTestSuite) TestNilValue() {
 	err := s.storage.Set("nil_key", nil)
 	s.NoError(err)
@@ -356,7 +356,7 @@ func (s *SharedMemoryTestSuite) TestNilValue() {
 	s.Contains(keys, "nil_key")
 }
 
-// TestEmptyStringKey tests using empty string as key
+// TestEmptyStringKey tests using empty string as key.
 func (s *SharedMemoryTestSuite) TestEmptyStringKey() {
 	err := s.storage.Set("", "value")
 	s.NoError(err)

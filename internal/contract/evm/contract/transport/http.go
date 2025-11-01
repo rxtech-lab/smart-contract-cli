@@ -100,19 +100,19 @@ func (h *HTTPTransport) CallContract(contractAddress common.Address, customABI c
 }
 
 // EstimateGas implements Transport.
-func (h *HTTPTransport) EstimateGas(tx *types.Transaction) (gas uint64, err error) {
+func (h *HTTPTransport) EstimateGas(transaction *types.Transaction) (gas uint64, err error) {
 	ctx := context.Background()
 
 	// Estimate gas for the transaction
 	msg := ethereum.CallMsg{
-		To:         tx.To(),
-		Gas:        tx.Gas(),
-		GasPrice:   tx.GasPrice(),
-		GasFeeCap:  tx.GasFeeCap(),
-		GasTipCap:  tx.GasTipCap(),
-		Value:      tx.Value(),
-		Data:       tx.Data(),
-		AccessList: tx.AccessList(),
+		To:         transaction.To(),
+		Gas:        transaction.Gas(),
+		GasPrice:   transaction.GasPrice(),
+		GasFeeCap:  transaction.GasFeeCap(),
+		GasTipCap:  transaction.GasTipCap(),
+		Value:      transaction.Value(),
+		Data:       transaction.Data(),
+		AccessList: transaction.AccessList(),
 	}
 
 	gas, err = h.client.EstimateGas(ctx, msg)
@@ -148,15 +148,15 @@ func (h *HTTPTransport) GetTransactionCount(address common.Address) (nonce uint6
 }
 
 // SendTransaction implements Transport.
-func (h *HTTPTransport) SendTransaction(tx *types.Transaction) (txHash common.Hash, err error) {
+func (h *HTTPTransport) SendTransaction(transaction *types.Transaction) (txHash common.Hash, err error) {
 	ctx := context.Background()
 
-	err = h.client.SendTransaction(ctx, tx)
+	err = h.client.SendTransaction(ctx, transaction)
 	if err != nil {
 		return common.Hash{}, errors.WrapTransportError(err, errors.ErrCodeTransactionSendFailed, "failed to send transaction")
 	}
 
-	return tx.Hash(), nil
+	return transaction.Hash(), nil
 }
 
 // WaitForTransactionReceipt implements Transport.

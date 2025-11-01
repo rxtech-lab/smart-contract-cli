@@ -336,14 +336,14 @@ func (s *SecureStorageWithEncryption) load() error {
 		return err //nolint:wrapcheck // Need unwrapped error for os.IsNotExist() check
 	}
 
-	var ed encryptedData
-	if err := json.Unmarshal(data, &ed); err != nil {
+	var encData encryptedData
+	if err := json.Unmarshal(data, &encData); err != nil {
 		return fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
 	s.mu.Lock()
-	s.passwordHash = ed.PasswordHash
-	s.data = ed.Data
+	s.passwordHash = encData.PasswordHash
+	s.data = encData.Data
 	s.mu.Unlock()
 
 	return nil

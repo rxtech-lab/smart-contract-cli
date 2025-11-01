@@ -191,13 +191,13 @@ func (z *ZStack) Render() string {
 	// TODO: True overlay support would require more sophisticated rendering
 	// For now, we'll just render them vertically as a fallback
 	// In a real TUI, true overlay would need cursor positioning
-	for i := 1; i < len(z.children); i++ {
+	for index := 1; index < len(z.children); index++ {
 		result = lipgloss.Place(
 			lipgloss.Width(result),
 			lipgloss.Height(result),
 			z.alignment,
 			z.alignment,
-			z.children[i].Render(),
+			z.children[index].Render(),
 			lipgloss.WithWhitespaceChars(" "),
 			lipgloss.WithWhitespaceForeground(lipgloss.NoColor{}),
 		)

@@ -59,7 +59,7 @@ contract TestContract {
 }
 `
 
-// PrivateKeySignerWithTransportTestSuite is the test suite
+// PrivateKeySignerWithTransportTestSuite is the test suite.
 type PrivateKeySignerWithTransportTestSuite struct {
 	suite.Suite
 	signer          SignerWithTransport
@@ -71,7 +71,7 @@ type PrivateKeySignerWithTransportTestSuite struct {
 	chainID         *big.Int
 }
 
-// SetupSuite runs once before all tests
+// SetupSuite runs once before all tests.
 func (suite *PrivateKeySignerWithTransportTestSuite) SetupSuite() {
 	// Anvil test account private key
 	suite.testPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -91,15 +91,20 @@ func (suite *PrivateKeySignerWithTransportTestSuite) SetupSuite() {
 	baseSigner, err := NewPrivateKeySigner(suite.testPrivateKey)
 	suite.Require().NoError(err, "Failed to create signer")
 
-	pkSigner, ok := baseSigner.(*PrivateKeySigner)
-	suite.Require().True(ok, "Failed to cast to PrivateKeySigner")
+	pkSigner, isValid := baseSigner.(*PrivateKeySigner)
+	suite.Require().True(isValid, "Failed to cast to PrivateKeySigner")
 
 	suite.signer = pkSigner.WithTransport(suite.transport)
 
 	// Compile contract using solc-go
 	compiler, err := solc.NewWithVersion("0.8.20")
 	suite.Require().NoError(err, "Failed to create compiler")
-	defer compiler.Close()
+	defer func() {
+		if closeErr := compiler.Close(); closeErr != nil {
+			// Log error but don't fail the test
+			_ = closeErr
+		}
+	}()
 
 	// Create input for compilation
 	input := &solc.Input{
@@ -160,7 +165,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) SetupSuite() {
 	suite.deployContract(bytecode)
 }
 
-// deployContract deploys the test contract
+// deployContract deploys the test contract.
 func (suite *PrivateKeySignerWithTransportTestSuite) deployContract(bytecode string) {
 	// Get nonce
 	nonce, err := suite.transport.GetTransactionCount(suite.testAddress)
@@ -170,7 +175,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) deployContract(bytecode str
 	deployData := common.FromHex(bytecode)
 
 	// Use EIP-1559 transaction
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   suite.chainID,
 		Nonce:     nonce,
 		GasTipCap: big.NewInt(1000000000), // 1 gwei
@@ -182,7 +187,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) deployContract(bytecode str
 	})
 
 	// Send transaction
-	txHash, err := suite.signer.SendTransaction(tx)
+	txHash, err := suite.signer.SendTransaction(transaction)
 	suite.Require().NoError(err, "Failed to send deployment transaction")
 	suite.T().Logf("Deployment transaction sent: %s", txHash.Hex())
 
@@ -195,14 +200,14 @@ func (suite *PrivateKeySignerWithTransportTestSuite) deployContract(bytecode str
 	suite.Require().NotEqual(common.Address{}, suite.contractAddress, "Contract address is empty")
 }
 
-// TestGetAddress tests the GetAddress method
+// TestGetAddress tests the GetAddress method.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestGetAddress() {
 	address, err := suite.signer.GetAddress()
 	suite.Require().NoError(err)
 	suite.Assert().Equal(suite.testAddress, address)
 }
 
-// TestGetBalance tests the GetBalance method
+// TestGetBalance tests the GetBalance method.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestGetBalance() {
 	balance, err := suite.signer.GetBalance(suite.testAddress)
 	suite.Require().NoError(err)
@@ -211,14 +216,14 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestGetBalance() {
 	suite.Assert().True(balance.Cmp(big.NewInt(0)) > 0)
 }
 
-// TestGetTransactionCount tests nonce retrieval
+// TestGetTransactionCount tests nonce retrieval.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestGetTransactionCount() {
 	nonce, err := suite.signer.GetTransactionCount(suite.testAddress)
 	suite.Require().NoError(err)
 	suite.Assert().True(nonce > 0, "Nonce should be > 0 after deployment")
 }
 
-// TestCallContractMethod_PureFunction tests calling a pure function
+// TestCallContractMethod_PureFunction tests calling a pure function.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_PureFunction() {
 	// Call add(10, 20)
 	result, err := suite.signer.CallContractMethod(
@@ -247,7 +252,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Pure
 	suite.Assert().True(method.IsReadOnly())
 }
 
-// TestCallContractMethod_ViewFunction tests calling a view function
+// TestCallContractMethod_ViewFunction tests calling a view function.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_ViewFunction() {
 	// First set a value so we have something to read
 	_, err := suite.signer.CallContractMethod(
@@ -275,8 +280,8 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_View
 	suite.Require().Len(result, 2, "Expected 2 return values")
 
 	// Check value
-	valueBigInt, ok := result[0].(*big.Int)
-	suite.Require().True(ok, "First result should be *big.Int")
+	valueBigInt, isOk := result[0].(*big.Int)
+	suite.Require().True(isOk, "First result should be *big.Int")
 	suite.Assert().Equal(int64(42), valueBigInt.Int64())
 
 	// Check address
@@ -291,7 +296,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_View
 	suite.Assert().True(method.IsReadOnly())
 }
 
-// TestCallContractMethod_NonPayableWrite tests a non-payable write function
+// TestCallContractMethod_NonPayableWrite tests a non-payable write function.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_NonPayableWrite() {
 	// Call setValue(123)
 	result, err := suite.signer.CallContractMethod(
@@ -308,12 +313,12 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_NonP
 	suite.Require().Len(result, 2, "Expected 2 return values (status, txHash)")
 
 	// Check transaction succeeded
-	status, ok := result[0].(uint64)
-	suite.Require().True(ok, "First result should be uint64 status")
+	status, statusOk := result[0].(uint64)
+	suite.Require().True(statusOk, "First result should be uint64 status")
 
 	// Check tx hash
-	txHash, ok := result[1].(string)
-	suite.Require().True(ok, "Second result should be string tx hash")
+	txHash, hashOk := result[1].(string)
+	suite.Require().True(hashOk, "Second result should be string tx hash")
 	suite.Assert().NotEmpty(txHash)
 	suite.T().Logf("setValue transaction hash: %s, status: %d", txHash, status)
 
@@ -332,8 +337,8 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_NonP
 	suite.Require().NoError(err)
 	suite.Require().Len(readResult, 1)
 
-	value, ok := readResult[0].(*big.Int)
-	suite.Require().True(ok)
+	value, isOk := readResult[0].(*big.Int)
+	suite.Require().True(isOk)
 	suite.Assert().Equal(int64(123), value.Int64(), "Value should be updated to 123")
 
 	// Verify method is nonpayable using enum
@@ -344,7 +349,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_NonP
 	suite.Assert().False(method.IsPayable())
 }
 
-// TestCallContractMethod_PayableFunction tests a payable function
+// TestCallContractMethod_PayableFunction tests a payable function.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_PayableFunction() {
 	// Get contract balance before
 	balanceBefore, err := suite.transport.GetBalance(suite.contractAddress)
@@ -366,8 +371,8 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Paya
 	suite.Require().Len(result, 2)
 
 	// Check status
-	status, ok := result[0].(uint64)
-	suite.Require().True(ok)
+	status, statusOk := result[0].(uint64)
+	suite.Require().True(statusOk)
 	suite.Assert().Equal(uint64(1), status)
 
 	// Verify contract balance increased
@@ -386,7 +391,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestCallContractMethod_Paya
 	suite.Assert().True(method.IsWriteOperation())
 }
 
-// TestEstimateGas tests gas estimation
+// TestEstimateGas tests gas estimation.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestEstimateGas() {
 	// Create a transaction with actual contract call data
 	nonce, err := suite.transport.GetTransactionCount(suite.testAddress)
@@ -394,7 +399,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestEstimateGas() {
 
 	// Simple ETH transfer (not a contract call) for gas estimation
 	recipient := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction2 := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   suite.chainID,
 		Nonce:     nonce,
 		GasTipCap: big.NewInt(1000000000), // 1 gwei
@@ -406,13 +411,13 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestEstimateGas() {
 	})
 
 	// Estimate gas
-	gas, err := suite.signer.EstimateGas(tx)
+	gas, err := suite.signer.EstimateGas(transaction2)
 	suite.Require().NoError(err)
 	suite.Assert().True(gas > 0, "Gas estimate should be positive")
 	suite.Assert().True(gas >= 21000, "Gas estimate should be at least 21000 for a simple transfer")
 }
 
-// TestSignAndVerifyMessage tests message signing and verification
+// TestSignAndVerifyMessage tests message signing and verification.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestSignAndVerifyMessage() {
 	message := "Hello, Ethereum!"
 
@@ -434,7 +439,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestSignAndVerifyMessage() 
 	suite.Assert().False(isValid, "Signature should be invalid for wrong address")
 }
 
-// TestSendTransaction_Manual tests manual transaction sending
+// TestSendTransaction_Manual tests manual transaction sending.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestSendTransaction_Manual() {
 	// Get nonce
 	nonce, err := suite.transport.GetTransactionCount(suite.testAddress)
@@ -445,7 +450,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestSendTransaction_Manual(
 	value := big.NewInt(1000000000000000) // 0.001 ETH
 
 	// Use EIP-1559 transaction
-	tx := types.NewTx(&types.DynamicFeeTx{
+	transaction3 := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   suite.chainID,
 		Nonce:     nonce,
 		GasTipCap: big.NewInt(1000000000), // 1 gwei
@@ -457,7 +462,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestSendTransaction_Manual(
 	})
 
 	// Send transaction
-	txHash, err := suite.signer.SendTransaction(tx)
+	txHash, err := suite.signer.SendTransaction(transaction3)
 	suite.Require().NoError(err)
 	suite.Assert().NotEqual(common.Hash{}, txHash)
 
@@ -467,7 +472,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestSendTransaction_Manual(
 	suite.Assert().Equal(uint64(1), receipt.Status)
 }
 
-// TestStateMutabilityHelpers tests enum helper methods
+// TestStateMutabilityHelpers tests enum helper methods.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestStateMutabilityHelpers() {
 	// Test pure function
 	addMethod := findMethodInABI(suite.contractABI, "add")
@@ -501,7 +506,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestStateMutabilityHelpers(
 	suite.Assert().True(depositMethod.IsWritable())
 }
 
-// TestErrorHandling tests various error cases
+// TestErrorHandling tests various error cases.
 func (suite *PrivateKeySignerWithTransportTestSuite) TestErrorHandling() {
 	// Test non-existent method
 	_, err := suite.signer.CallContractMethod(
@@ -527,7 +532,7 @@ func (suite *PrivateKeySignerWithTransportTestSuite) TestErrorHandling() {
 	suite.Assert().Error(err, "Should error for invalid contract address")
 }
 
-// TestRunSuite runs the test suite
+// TestRunSuite runs the test suite.
 func TestRunSuite(t *testing.T) {
 	suite.Run(t, new(PrivateKeySignerWithTransportTestSuite))
 }

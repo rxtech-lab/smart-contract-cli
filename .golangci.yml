@@ -1,3 +1,4 @@
+version: "2"
 run:
   timeout: 5m
   tests: true
@@ -5,217 +6,45 @@ run:
 linters:
   enable:
     # Enabled by default
-    - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify code
-    - govet         # Vet examines Go source code
-    - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Advanced Go linter
-    - unused        # Check for unused constants, variables, functions and types
-
-    # Style and code quality
-    - gofmt         # Check whether code was gofmt-ed
-    - goimports     # Check import statements are formatted
-    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
-    - stylecheck    # Replacement for golint
+    - errcheck # Check for unchecked errors
+    - govet # Vet examines Go source code
+    - ineffassign # Detect ineffectual assignments
+    - staticcheck # Advanced Go linter
+    - unused # Check for unused constants, variables, functions and types
 
     # Complexity and maintainability
-    - gocyclo       # Cyclomatic complexity
-    - gocognit      # Cognitive complexity
-    - cyclop        # Package complexity
-    - nestif        # Reports deeply nested if statements
+    - gocyclo # Cyclomatic complexity
+    - gocognit # Cognitive complexity
+    - nestif # Reports deeply nested if statements
 
     # Bugs and correctness
-    - bodyclose     # Check HTTP response body is closed
-    - noctx         # Finds HTTP requests without context.Context
-    - rowserrcheck  # Check whether Rows.Err is checked
+    - bodyclose # Check HTTP response body is closed
+    - noctx # Finds HTTP requests without context.Context
+    - rowserrcheck # Check whether Rows.Err is checked
     - sqlclosecheck # Check sql.Rows and sql.Stmt are closed
-    - gosec         # Security issues
+    - gosec # Security issues
 
     # Performance
-    - prealloc      # Find slice declarations that could potentially be preallocated
+    - prealloc # Find slice declarations that could potentially be preallocated
 
     # Error handling
-    - errname       # Check error naming conventions
-    - errorlint     # Find code that will cause problems with Go 1.13 error wrapping
-    - wrapcheck     # Check that errors from external packages are wrapped
+    - errname # Check error naming conventions
+    - errorlint # Find code that will cause problems with Go 1.13 error wrapping
+    - wrapcheck # Check that errors from external packages are wrapped
 
     # Code organization
-    - depguard      # Checks if package imports are in whitelist
-    - gomodguard    # Check for blocked dependencies
+    - gomodguard # Check for blocked dependencies
 
     # Formatting and style
-    - whitespace    # Check for unnecessary whitespace
-    - unconvert     # Remove unnecessary type conversions
-    - unparam       # Reports unused function parameters
-    - wastedassign  # Find wasted assignment statements
+    - whitespace # Check for unnecessary whitespace
+    - unconvert # Remove unnecessary type conversions
+    - unparam # Reports unused function parameters
+    - wastedassign # Find wasted assignment statements
 
     # Naming conventions
-    - predeclared   # Find code that shadows predeclared identifiers
-    - varnamelen    # Check variable name length
+    - predeclared # Find code that shadows predeclared identifiers
+    - varnamelen # Check variable name length
 
     # Comments and documentation
-    - godot         # Check if comments end in a period
-    - misspell      # Finds commonly misspelled English words
-
-linters-settings:
-  revive:
-    rules:
-      - name: comment-spacings
-        severity: warning
-        disabled: false
-      # Private functions should appear above public methods
-      - name: function-result-limit
-        severity: warning
-        disabled: false
-        arguments: [3]
-      - name: cognitive-complexity
-        severity: warning
-        disabled: false
-        arguments: [20]
-      - name: cyclomatic
-        severity: warning
-        disabled: false
-        arguments: [15]
-
-  gocyclo:
-    min-complexity: 15
-
-  gocognit:
-    min-complexity: 20
-
-  nestif:
-    min-complexity: 4
-
-  varnamelen:
-    min-name-length: 2
-    ignore-names:
-      - err
-      - tx
-      - id
-      - ok
-      - i
-      - j
-      - k
-    ignore-decls:
-      - t testing.T
-      - e error
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-
-  govet:
-    enable-all: true
-    disable:
-      - shadow  # Can be too strict
-      - fieldalignment  # Struct field alignment is a micro-optimization
-
-  stylecheck:
-    checks: ["all"]
-    initialisms: ["ACL", "API", "ASCII", "CPU", "CSS", "DNS", "EOF", "GUID", "HTML", "HTTP", "HTTPS", "ID", "IP", "JSON", "LHS", "QPS", "RAM", "RHS", "RPC", "SLA", "SMTP", "SQL", "SSH", "TCP", "TLS", "TTL", "UDP", "UI", "UID", "UUID", "URI", "URL", "UTF8", "VM", "XML", "XMPP", "XSRF", "XSS", "ABI"]
-
-  godot:
-    scope: declarations
-    capital: true
-
-  depguard:
-    rules:
-      main:
-        deny:
-          - pkg: "io/ioutil"
-            desc: "Use os and io packages instead"
-
-  gosec:
-    excludes:
-      - G104  # Audit errors not checked (covered by errcheck)
-
-  wrapcheck:
-    ignorePackageGlobs:
-      - github.com/rxtech-lab/smart-contract-cli/*
-
-issues:
-  exclude-dirs:
-    - vendor
-    - third_party
-  exclude-files:
-    - ".*\\.pb\\.go$"
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - gosec
-        - wrapcheck
-        - varnamelen
-        - godot
-
-    # Exclude cognitive complexity for test files
-    - path: _test\.go
-      text: "cognitive complexity"
-
-    # Allow longer functions in test suites
-    - path: _test\.go
-      text: "Function 'Test"
-      linters:
-        - gocognit
-        - gocyclo
-
-    # Exclude storage models from stylecheck naming (database/JSON field names)
-    - path: internal/contract/evm/storage/models/
-      linters:
-        - stylecheck
-
-    # Exclude abi.go from stylecheck naming (legacy API compatibility)
-    - path: internal/contract/evm/abi/abi\.go
-      linters:
-        - stylecheck
-
-    # Exclude component package from godot (type names like "If" cause false positives)
-    - path: internal/ui/component/
-      linters:
-        - godot
-
-    # Exclude generated files from all linters
-    - path: _gen\.go
-      linters:
-        - gofmt
-        - goimports
-        - revive
-        - stylecheck
-        - godot
-        - misspell
-        - whitespace
-        - unconvert
-        - unparam
-        - wastedassign
-        - predeclared
-        - varnamelen
-        - errcheck
-        - gosimple
-        - govet
-        - ineffassign
-        - staticcheck
-        - unused
-        - gocyclo
-        - gocognit
-        - cyclop
-        - nestif
-        - bodyclose
-        - noctx
-        - rowserrcheck
-        - sqlclosecheck
-        - gosec
-        - prealloc
-        - errname
-        - errorlint
-        - wrapcheck
-        - depguard
-        - gomodguard
-
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-output:
-  formats:
-    - format: colored-line-number
+    - godot # Check if comments end in a period
+    - misspell # Finds commonly misspelled English words

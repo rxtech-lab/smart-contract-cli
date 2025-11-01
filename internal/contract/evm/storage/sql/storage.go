@@ -1,6 +1,9 @@
 package sql
 
 import (
+	"fmt"
+
+	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	models "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/models/evm"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 )
@@ -41,4 +44,20 @@ type Storage interface {
 	CountConfigs() (count int64, err error)
 	UpdateConfig(id uint, config models.EVMConfig) (err error)
 	DeleteConfig(id uint) (err error)
+}
+
+func GetStorage(storageType string, params ...any) (Storage, error) {
+	switch storageType {
+	case config.StorageClientTypeSQLite:
+		if len(params) == 0 || params[0] == nil {
+			return nil, fmt.Errorf("sqlite path is required")
+		}
+		sqlitePath, ok := params[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("sqlite path must be a string")
+		}
+		return NewSQLiteDB(sqlitePath)
+	default:
+		return nil, fmt.Errorf("invalid storage type: %s", storageType)
+	}
 }

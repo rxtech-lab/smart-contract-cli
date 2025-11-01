@@ -199,20 +199,20 @@ func TestParseAbi(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseAbi(tt.input)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			result, err := ParseAbi(testCase.input)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				assert.Error(t, err)
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Len(t, result, tt.expectedLen)
+			assert.Len(t, result, testCase.expectedLen)
 
-			if tt.validate != nil {
-				tt.validate(t, result)
+			if testCase.validate != nil {
+				testCase.validate(t, result)
 			}
 		})
 	}
@@ -293,7 +293,7 @@ func TestReadAbi(t *testing.T) {
 						"stateMutability": "nonpayable"
 					}
 				]`
-				err := os.WriteFile(filePath, []byte(abiContent), 0644)
+				err := os.WriteFile(filePath, []byte(abiContent), 0600)
 				require.NoError(t, err)
 				return filePath
 			},
@@ -323,7 +323,7 @@ func TestReadAbi(t *testing.T) {
 					],
 					"bytecode": "0x608060405234801561001057600080fd5b50"
 				}`
-				err := os.WriteFile(filePath, []byte(abiContent), 0644)
+				err := os.WriteFile(filePath, []byte(abiContent), 0600)
 				require.NoError(t, err)
 				return filePath
 			},
@@ -408,25 +408,25 @@ func TestReadAbi(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := tt.setup(t)
-			defer tt.cleanup(t, path)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			path := testCase.setup(t)
+			defer testCase.cleanup(t, path)
 
 			result, err := ReadAbi(path)
 
-			if tt.wantErr {
+			if testCase.wantErr {
 				assert.Error(t, err)
 				return
 			}
 
 			require.NoError(t, err)
-			if tt.expectedLen > 0 {
-				assert.Len(t, result, tt.expectedLen)
+			if testCase.expectedLen > 0 {
+				assert.Len(t, result, testCase.expectedLen)
 			}
 
-			if tt.validate != nil {
-				tt.validate(t, result)
+			if testCase.validate != nil {
+				testCase.validate(t, result)
 			}
 		})
 	}

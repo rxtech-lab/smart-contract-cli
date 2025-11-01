@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// PagePasswordTestSuite tests password unlock functionality using teatest
+// PagePasswordTestSuite tests password unlock functionality using teatest.
 type PagePasswordTestSuite struct {
 	suite.Suite
 	testStoragePath string
@@ -32,7 +32,8 @@ func (s *PagePasswordTestSuite) SetupTest() {
 	s.testStoragePath = tmpDir
 
 	// Override the storage path for tests
-	os.Setenv("HOME", tmpDir)
+	err = os.Setenv("HOME", tmpDir)
+	s.NoError(err, "Should set HOME environment variable")
 
 	// Create shared memory and router for each test
 	s.sharedMemory = storage.NewSharedMemory()
@@ -42,7 +43,8 @@ func (s *PagePasswordTestSuite) SetupTest() {
 func (s *PagePasswordTestSuite) TearDownTest() {
 	// Clean up test storage
 	if s.testStoragePath != "" {
-		os.RemoveAll(s.testStoragePath)
+		err := os.RemoveAll(s.testStoragePath)
+		s.NoError(err, "Should clean up test storage directory")
 	}
 }
 
@@ -52,7 +54,7 @@ func (s *PagePasswordTestSuite) getOutput(tm *teatest.TestModel) string {
 	return string(output)
 }
 
-// TestInitialStateNewStorage tests that a new storage creation prompt is shown
+// TestInitialStateNewStorage tests that a new storage creation prompt is shown.
 func (s *PagePasswordTestSuite) TestInitialStateNewStorage() {
 	model := NewPage(s.router, s.sharedMemory)
 	pageModel := model.(Model)
@@ -61,7 +63,7 @@ func (s *PagePasswordTestSuite) TestInitialStateNewStorage() {
 	s.False(pageModel.isUnlocked, "Should not be unlocked initially")
 	s.True(pageModel.isCreatingNew, "Should be in creating new storage mode")
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -70,20 +72,20 @@ func (s *PagePasswordTestSuite) TestInitialStateNewStorage() {
 	// Wait for initial render
 	time.Sleep(100 * time.Millisecond)
 
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Create a password", "Should show create password prompt")
 	s.Contains(output, "Password:", "Should show password input field")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestSuccessfulPasswordCreation tests creating a new storage with a password
+// TestSuccessfulPasswordCreation tests creating a new storage with a password.
 func (s *PagePasswordTestSuite) TestSuccessfulPasswordCreation() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -95,7 +97,7 @@ func (s *PagePasswordTestSuite) TestSuccessfulPasswordCreation() {
 	// Type password
 	password := "testpass123"
 	for _, char := range password {
-		tm.Send(tea.KeyMsg{
+		testModel.Send(tea.KeyMsg{
 			Type:  tea.KeyRunes,
 			Runes: []rune{char},
 		})
@@ -103,7 +105,7 @@ func (s *PagePasswordTestSuite) TestSuccessfulPasswordCreation() {
 	}
 
 	// Submit password with Enter
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Wait for unlock to process
 	time.Sleep(200 * time.Millisecond)
@@ -114,15 +116,15 @@ func (s *PagePasswordTestSuite) TestSuccessfulPasswordCreation() {
 	s.Equal(password, storedPassword, "Password should match")
 
 	// Verify main menu is shown
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Select a blockchain", "Should show main menu after unlock")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestExistingStorageUnlock tests unlocking existing storage with correct password
+// TestExistingStorageUnlock tests unlocking existing storage with correct password.
 func (s *PagePasswordTestSuite) TestExistingStorageUnlock() {
 	// Pre-create storage with a known password
 	password := "mypassword"
@@ -139,7 +141,7 @@ func (s *PagePasswordTestSuite) TestExistingStorageUnlock() {
 	s.False(pageModel.isUnlocked, "Should not be unlocked initially")
 	s.False(pageModel.isCreatingNew, "Should not be in create mode for existing storage")
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -148,12 +150,12 @@ func (s *PagePasswordTestSuite) TestExistingStorageUnlock() {
 	// Wait for initial render
 	time.Sleep(100 * time.Millisecond)
 
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Enter password to unlock", "Should show unlock prompt")
 
 	// Type the correct password
 	for _, char := range password {
-		tm.Send(tea.KeyMsg{
+		testModel.Send(tea.KeyMsg{
 			Type:  tea.KeyRunes,
 			Runes: []rune{char},
 		})
@@ -161,21 +163,21 @@ func (s *PagePasswordTestSuite) TestExistingStorageUnlock() {
 	}
 
 	// Submit password
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Wait for unlock
 	time.Sleep(200 * time.Millisecond)
 
 	// Verify unlocked
-	output = s.getOutput(tm)
+	output = s.getOutput(testModel)
 	s.Contains(output, "Select a blockchain", "Should show main menu after successful unlock")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestInvalidPasswordError tests that wrong password shows error
+// TestInvalidPasswordError tests that wrong password shows error.
 func (s *PagePasswordTestSuite) TestInvalidPasswordError() {
 	// Pre-create storage with a known password
 	correctPassword := "correctpass"
@@ -188,7 +190,7 @@ func (s *PagePasswordTestSuite) TestInvalidPasswordError() {
 	// Create model
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel2 := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -200,7 +202,7 @@ func (s *PagePasswordTestSuite) TestInvalidPasswordError() {
 	// Type wrong password
 	wrongPassword := "wrongpass"
 	for _, char := range wrongPassword {
-		tm.Send(tea.KeyMsg{
+		testModel2.Send(tea.KeyMsg{
 			Type:  tea.KeyRunes,
 			Runes: []rune{char},
 		})
@@ -208,13 +210,13 @@ func (s *PagePasswordTestSuite) TestInvalidPasswordError() {
 	}
 
 	// Submit wrong password
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel2.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Wait for error processing
 	time.Sleep(200 * time.Millisecond)
 
 	// Verify error message shown
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel2)
 	s.Contains(output, "Failed to unlock", "Should show unlock failure message")
 	s.NotContains(output, "Select a blockchain", "Should not show main menu")
 
@@ -224,15 +226,15 @@ func (s *PagePasswordTestSuite) TestInvalidPasswordError() {
 	s.Nil(storedPassword, "Should not have password in shared memory after failed unlock")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel2.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel2.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestEmptyPasswordValidation tests that empty password is rejected
+// TestEmptyPasswordValidation tests that empty password is rejected.
 func (s *PagePasswordTestSuite) TestEmptyPasswordValidation() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -242,21 +244,21 @@ func (s *PagePasswordTestSuite) TestEmptyPasswordValidation() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Submit without typing anything
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Wait for validation
 	time.Sleep(200 * time.Millisecond)
 
 	// Verify error message
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Password cannot be empty", "Should show empty password error")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestSharedMemoryIntegration tests that pre-existing password in shared memory skips unlock
+// TestSharedMemoryIntegration tests that pre-existing password in shared memory skips unlock.
 func (s *PagePasswordTestSuite) TestSharedMemoryIntegration() {
 	// Pre-create storage and set password in shared memory
 	password := "presetpass"
@@ -276,7 +278,7 @@ func (s *PagePasswordTestSuite) TestSharedMemoryIntegration() {
 
 	s.True(pageModel.isUnlocked, "Should be unlocked immediately with password in shared memory")
 
-	tm := teatest.NewTestModel(
+	testModel := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -286,20 +288,20 @@ func (s *PagePasswordTestSuite) TestSharedMemoryIntegration() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify main menu shown immediately
-	output := s.getOutput(tm)
+	output := s.getOutput(testModel)
 	s.Contains(output, "Select a blockchain", "Should show main menu immediately")
 	s.NotContains(output, "Enter password", "Should not show password prompt")
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
 
-// TestQuitDuringPasswordEntry tests that Ctrl+C works during password entry
+// TestQuitDuringPasswordEntry tests that Ctrl+C works during password entry.
 func (s *PagePasswordTestSuite) TestQuitDuringPasswordEntry() {
 	model := NewPage(s.router, s.sharedMemory)
 
-	tm := teatest.NewTestModel(
+	testModel3 := teatest.NewTestModel(
 		s.T(),
 		model,
 		teatest.WithInitialTermSize(300, 100),
@@ -309,14 +311,14 @@ func (s *PagePasswordTestSuite) TestQuitDuringPasswordEntry() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Type some password
-	tm.Send(tea.KeyMsg{
+	testModel3.Send(tea.KeyMsg{
 		Type:  tea.KeyRunes,
 		Runes: []rune{'t', 'e', 's', 't'},
 	})
 
 	// Quit with Ctrl+C
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-	tm.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+	testModel3.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel3.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 
 	// If we get here without hanging, the test passes
 	s.True(true, "Should quit cleanly during password entry")

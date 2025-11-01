@@ -47,9 +47,9 @@ func (p *PrivateKeySigner) SignMessageString(message string) (signature string, 
 }
 
 // SignTransaction implements Signer.
-func (p *PrivateKeySigner) SignTransaction(tx *types.Transaction) (signedTx *types.Transaction, err error) {
+func (p *PrivateKeySigner) SignTransaction(transaction *types.Transaction) (signedTx *types.Transaction, err error) {
 	// Get the chain ID from the transaction
-	chainID := tx.ChainId()
+	chainID := transaction.ChainId()
 	if chainID == nil {
 		return nil, errors.NewSignerError(errors.ErrCodeInvalidChainID, "transaction has no chain ID")
 	}
@@ -58,7 +58,7 @@ func (p *PrivateKeySigner) SignTransaction(tx *types.Transaction) (signedTx *typ
 	signer := types.NewLondonSigner(chainID)
 
 	// Sign the transaction
-	signedTx, err = types.SignTx(tx, signer, p.PrivateKey)
+	signedTx, err = types.SignTx(transaction, signer, p.PrivateKey)
 	if err != nil {
 		return nil, errors.WrapSignerError(err, errors.ErrCodeTransactionSignFailed, "failed to sign transaction")
 	}
