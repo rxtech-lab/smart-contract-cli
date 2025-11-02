@@ -37,7 +37,7 @@ type Config struct {
 	ConsoleOutput bool
 }
 
-// DefaultConfig returns a Config with sensible defaults
+// DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
 		LogFilePath:   "./logs/app.log",
@@ -49,18 +49,18 @@ func DefaultConfig() Config {
 	}
 }
 
-// NewLogger creates a new logger that writes to console only (backward compatible)
+// NewLogger creates a new logger that writes to console only (backward compatible).
 func NewLogger() *Logger {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	return &Logger{Logger: &logger}
 }
 
-// NewLoggerWithConfig creates a new logger with custom configuration
-// It supports writing to both file and console with log rotation
+// NewLoggerWithConfig creates a new logger with custom configuration.
+// It supports writing to both file and console with log rotation.
 func NewLoggerWithConfig(config Config) (*Logger, error) {
 	// Ensure log directory exists
 	logDir := filepath.Dir(config.LogFilePath)
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
@@ -96,7 +96,7 @@ func NewLoggerWithConfig(config Config) (*Logger, error) {
 	}, nil
 }
 
-// NewFileLogger creates a logger that writes only to file (no console output)
+// NewFileLogger creates a logger that writes only to file (no console output).
 func NewFileLogger(logFilePath string) (*Logger, error) {
 	config := DefaultConfig()
 	config.LogFilePath = logFilePath
@@ -104,18 +104,22 @@ func NewFileLogger(logFilePath string) (*Logger, error) {
 	return NewLoggerWithConfig(config)
 }
 
-// Close closes the log file and flushes any pending writes
+// Close closes the log file and flushes any pending writes.
 func (l *Logger) Close() error {
 	if l.file != nil {
-		return l.file.Close()
+		if err := l.file.Close(); err != nil {
+			return fmt.Errorf("failed to close log file: %w", err)
+		}
 	}
 	return nil
 }
 
-// Rotate causes the log file to be rotated
+// Rotate causes the log file to be rotated.
 func (l *Logger) Rotate() error {
 	if l.file != nil {
-		return l.file.Rotate()
+		if err := l.file.Rotate(); err != nil {
+			return fmt.Errorf("failed to rotate log file: %w", err)
+		}
 	}
 	return nil
 }

@@ -436,6 +436,118 @@ func (s *WalletPageTestSuite) TestHelpText() {
 	s.Contains(helpText, "esc/q: back", "Should show back")
 }
 
+// TestAddFirstWallet tests pressing 'a' to add first wallet when list is empty.
+func (s *WalletPageTestSuite) TestAddFirstWallet() {
+	mockWalletSvc := s.setupMockWalletService()
+
+	// Mock empty wallet list
+	mockWalletSvc.EXPECT().
+		ListWalletsWithBalances(int64(1), int64(100), "http://localhost:8545").
+		Return([]walletsvc.WalletWithBalance{}, int64(0), nil)
+
+	// Set up router with add wallet route
+	addWalletCalled := false
+	s.router.AddRoute(view.Route{
+		Path: "/evm/wallet/add",
+		Component: func(router view.Router, sharedMemory storage.SharedMemory) view.View {
+			addWalletCalled = true
+			return &mockComponent{}
+		},
+	})
+
+	model := NewPageWithService(s.router, s.sharedMemory, mockWalletSvc)
+
+	testModel := teatest.NewTestModel(
+		s.T(),
+		model,
+		teatest.WithInitialTermSize(300, 100),
+	)
+
+	// Wait for wallets to load
+	time.Sleep(300 * time.Millisecond)
+
+	// Verify empty state is shown
+	output := s.getOutput(testModel)
+	s.Contains(output, "No wallets found", "Should show empty state")
+	s.Contains(output, "Press 'a' to add your first wallet", "Should show add wallet hint")
+
+	// Press 'a' to add wallet
+	testModel.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune{'a'},
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify navigation occurred
+	s.True(addWalletCalled, "Should navigate to add wallet page")
+	currentRoute := s.router.GetCurrentRoute()
+	s.Equal("/evm/wallet/add", currentRoute.Path, "Should navigate to /evm/wallet/add")
+
+	// Quit
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+}
+
+// TestAddWalletFromNonEmptyList tests pressing 'a' when wallets already exist.
+func (s *WalletPageTestSuite) TestAddWalletFromNonEmptyList() {
+	mockWalletSvc := s.setupMockWalletService()
+
+	testWallets := []walletsvc.WalletWithBalance{
+		{
+			Wallet: models.EVMWallet{
+				ID:      1,
+				Alias:   "Existing Wallet",
+				Address: "0x1111111111111111111111111111111111111111",
+			},
+		},
+	}
+
+	mockWalletSvc.EXPECT().
+		ListWalletsWithBalances(int64(1), int64(100), "http://localhost:8545").
+		Return(testWallets, int64(1), nil)
+
+	// Set up router with add wallet route
+	addWalletCalled := false
+	s.router.AddRoute(view.Route{
+		Path: "/evm/wallet/add",
+		Component: func(router view.Router, sharedMemory storage.SharedMemory) view.View {
+			addWalletCalled = true
+			return &mockComponent{}
+		},
+	})
+
+	model := NewPageWithService(s.router, s.sharedMemory, mockWalletSvc)
+
+	testModel := teatest.NewTestModel(
+		s.T(),
+		model,
+		teatest.WithInitialTermSize(300, 100),
+	)
+
+	// Wait for wallets to load
+	time.Sleep(300 * time.Millisecond)
+
+	// Verify wallet list is shown
+	output := s.getOutput(testModel)
+	s.Contains(output, "Existing Wallet", "Should show existing wallet")
+
+	// Press 'a' to add another wallet
+	testModel.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune{'a'},
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify navigation occurred
+	s.True(addWalletCalled, "Should navigate to add wallet page")
+	currentRoute := s.router.GetCurrentRoute()
+	s.Equal("/evm/wallet/add", currentRoute.Path, "Should navigate to /evm/wallet/add")
+
+	// Quit
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+}
+
 // mockComponent is a simple mock component for router testing.
 type mockComponent struct{}
 

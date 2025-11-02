@@ -1,7 +1,7 @@
 package config
 
 const (
-	StorageKeyTypeKey   = "storage_client_type"
 	SelectedWalletIDKey = "selected_wallet_id"
-	StorageClientKey    = "storage_client"
+	// StorageClientKey is the key for the storage client in shared memory, it is a sql.Storage instance.
+	StorageClientKey = "storage_client"
 )

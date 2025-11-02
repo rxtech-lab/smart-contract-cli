@@ -23,8 +23,8 @@ type SecureStorage interface {
 	Exists() bool
 	// Create creates the storage.
 	Create(password string) error
-	// Unlock unlocks the storage.
-	Unlock(password string) error
+	// TestPassword unlocks the storage.
+	TestPassword(password string) error
 	// Get retrieves and decrypts the value for a given key.
 	Get(key string) (value string, err error)
 	// Set encrypts and stores the value for a given key.
@@ -55,7 +55,7 @@ type encryptedData struct {
 }
 
 // NewSecureStorageWithEncryption creates a new encrypted storage instance.
-// EncryptionKey: the key used for encryption (will be hashed to 32 bytes for AES-256).
+// EncryptionKey: the key used for encryption (will be hashed to 32 bytes for AES-256). This should be user's password.
 // FilePath: optional file path for persistence (empty string uses default path from config).
 func NewSecureStorageWithEncryption(encryptionKey string, filePath string) (SecureStorage, error) {
 	// Use default path if not provided
@@ -134,8 +134,8 @@ func (s *SecureStorageWithEncryption) Create(password string) error {
 	return nil
 }
 
-// Unlock verifies the password against the stored password hash.
-func (s *SecureStorageWithEncryption) Unlock(password string) error {
+// TestPassword verifies the password against the stored password hash.
+func (s *SecureStorageWithEncryption) TestPassword(password string) error {
 	// Load data if not already loaded
 	if s.filePath != "" && s.passwordHash == "" {
 		if err := s.load(); err != nil {

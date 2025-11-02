@@ -516,7 +516,7 @@ func (s *SecureStorageTestSuite) TestUnlockSuccess() {
 	}()
 
 	// Unlock with correct password should succeed
-	err = newStorage.Unlock("test-password")
+	err = newStorage.TestPassword("test-password")
 	s.NoError(err)
 }
 
@@ -537,7 +537,7 @@ func (s *SecureStorageTestSuite) TestUnlockWrongPassword() {
 	}()
 
 	// Unlock with wrong password should fail
-	err = newStorage.Unlock("wrong-password")
+	err = newStorage.TestPassword("wrong-password")
 	s.Error(err)
 	s.Contains(err.Error(), "incorrect password")
 }
@@ -581,11 +581,11 @@ func (s *SecureStorageTestSuite) TestCreateUnlockWorkflow() {
 	}()
 
 	// Step 5: Verify password with Unlock
-	err = storage2.Unlock(password)
+	err = storage2.TestPassword(password)
 	s.NoError(err, "Should unlock with correct password")
 
 	// Step 6: Verify wrong password fails
-	err = storage2.Unlock("wrong-password")
+	err = storage2.TestPassword("wrong-password")
 	s.Error(err, "Should fail with wrong password")
 
 	// Step 7: Verify data is accessible (regardless of unlock)

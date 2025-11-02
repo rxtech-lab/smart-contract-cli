@@ -10,10 +10,14 @@ import (
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/wallet"
+	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
+	"github.com/rxtech-lab/smart-contract-cli/internal/utils"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
+
+var logger, _ = log.NewFileLogger("./logs/evm/wallet/page.log")
 
 type Model struct {
 	router        view.Router
@@ -49,28 +53,30 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) createWalletService() (wallet.WalletService, error) {
+	keys, err := m.sharedMemory.List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list shared memory keys: %w", err)
+	}
+	logger.Info("Shared memory keys: %v", keys)
 	// Get storage client from shared memory
 	storageClient, err := m.sharedMemory.Get(config.StorageClientKey)
 	if err != nil || storageClient == nil {
+		logger.Error("Failed to get storage client from shared memory: %v", err)
 		return nil, fmt.Errorf("storage client not initialized")
 	}
 
 	sqlStorage, isValidStorage := storageClient.(sql.Storage)
 	if !isValidStorage {
+		logger.Error("Invalid storage client type")
 		return nil, fmt.Errorf("invalid storage client type")
 	}
 
 	// Get secure storage
-	secureStorageClient, err := m.sharedMemory.Get("secure_storage")
-	if err != nil || secureStorageClient == nil {
-		return nil, fmt.Errorf("secure storage not initialized")
+	secureStorage, _, err := utils.GetSecureStorageFromSharedMemory(m.sharedMemory)
+	if err != nil {
+		logger.Error("Failed to get secure storage from shared memory: %v", err)
+		return nil, fmt.Errorf("failed to get secure storage from shared memory: %w", err)
 	}
-
-	secureStorage, isValidSecureStorage := secureStorageClient.(storage.SecureStorage)
-	if !isValidSecureStorage {
-		return nil, fmt.Errorf("invalid secure storage type")
-	}
-
 	// Create wallet service
 	return wallet.NewWalletService(sqlStorage, secureStorage), nil
 }
@@ -173,22 +179,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "a":
 			// Navigate to add wallet page
-			return m, func() tea.Msg {
-				_ = m.router.NavigateTo("/evm/wallet/add", nil)
-				return nil
+			logger.Info("Navigating to add wallet page")
+			if err := m.router.NavigateTo("/evm/wallet/add", nil); err != nil {
+				logger.Error("Failed to navigate to add wallet page: %v", err)
 			}
+			return m, nil
 
 		case "r":
 			// Refresh wallets
 			m.loading = true
 			return m, m.loadWallets
-
-		case "esc", "q":
-			// Go back
-			return m, func() tea.Msg {
-				m.router.Back()
-				return nil
-			}
 		}
 	}
 

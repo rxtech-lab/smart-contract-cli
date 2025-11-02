@@ -24,7 +24,7 @@ func (s *LoggerTestSuite) SetupTest() {
 func (s *LoggerTestSuite) TearDownTest() {
 	// Clean up temporary directory
 	if s.tempDir != "" {
-		os.RemoveAll(s.tempDir)
+		_ = os.RemoveAll(s.tempDir)
 	}
 }
 
@@ -67,7 +67,7 @@ func (s *LoggerTestSuite) TestNewLoggerWithConfig() {
 	s.NotNil(logger.file)
 
 	// Clean up
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Verify log directory was created
 	logDir := filepath.Dir(logPath)
@@ -83,7 +83,7 @@ func (s *LoggerTestSuite) TestNewFileLogger() {
 	s.NotNil(logger)
 	s.NotNil(logger.file)
 
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 }
 
 func (s *LoggerTestSuite) TestWriteToFile() {
@@ -99,7 +99,7 @@ func (s *LoggerTestSuite) TestWriteToFile() {
 
 	logger, err := NewLoggerWithConfig(config)
 	s.Require().NoError(err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Write some logs
 	logger.Info("Info message: %s", "test")
@@ -112,7 +112,7 @@ func (s *LoggerTestSuite) TestWriteToFile() {
 	s.NoError(err)
 
 	// Read the log file
-	content, err := os.ReadFile(logPath)
+	content, err := os.ReadFile(logPath) // #nosec G304 - test file path is controlled
 	s.Require().NoError(err)
 
 	logContent := string(content)
@@ -130,16 +130,16 @@ func (s *LoggerTestSuite) TestLogLevels() {
 	logPath := filepath.Join(s.tempDir, "levels.log")
 	logger, err := NewFileLogger(logPath)
 	s.Require().NoError(err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Info("info")
 	logger.Error("error")
 	logger.Debug("debug")
 	logger.Warn("warn")
 
-	logger.Close()
+	_ = logger.Close()
 
-	content, err := os.ReadFile(logPath)
+	content, err := os.ReadFile(logPath) // #nosec G304 - test file path is controlled
 	s.Require().NoError(err)
 
 	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
@@ -150,7 +150,7 @@ func (s *LoggerTestSuite) TestRotate() {
 	logPath := filepath.Join(s.tempDir, "rotate.log")
 	logger, err := NewFileLogger(logPath)
 	s.Require().NoError(err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Info("Before rotation")
 
@@ -159,7 +159,7 @@ func (s *LoggerTestSuite) TestRotate() {
 	s.NoError(err)
 
 	logger.Info("After rotation")
-	logger.Close()
+	_ = logger.Close()
 
 	// Check that log file exists
 	_, err = os.Stat(logPath)
@@ -186,10 +186,10 @@ func (s *LoggerTestSuite) TestLogDirectoryCreation() {
 
 	logger, err := NewLoggerWithConfig(config)
 	s.Require().NoError(err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Info("Test message")
-	logger.Close()
+	_ = logger.Close()
 
 	// Verify the nested directory structure was created
 	_, err = os.Stat(filepath.Dir(logPath))
@@ -206,25 +206,25 @@ func (s *LoggerTestSuite) TestMultipleLoggers() {
 
 	logger1, err := NewFileLogger(logPath1)
 	s.Require().NoError(err)
-	defer logger1.Close()
+	defer func() { _ = logger1.Close() }()
 
 	logger2, err := NewFileLogger(logPath2)
 	s.Require().NoError(err)
-	defer logger2.Close()
+	defer func() { _ = logger2.Close() }()
 
 	logger1.Info("Logger 1 message")
 	logger2.Info("Logger 2 message")
 
-	logger1.Close()
-	logger2.Close()
+	_ = logger1.Close()
+	_ = logger2.Close()
 
 	// Verify both log files exist and have correct content
-	content1, err := os.ReadFile(logPath1)
+	content1, err := os.ReadFile(logPath1) // #nosec G304 - test file path is controlled
 	s.Require().NoError(err)
 	s.Contains(string(content1), "Logger 1 message")
 	s.NotContains(string(content1), "Logger 2 message")
 
-	content2, err := os.ReadFile(logPath2)
+	content2, err := os.ReadFile(logPath2) // #nosec G304 - test file path is controlled
 	s.Require().NoError(err)
 	s.Contains(string(content2), "Logger 2 message")
 	s.NotContains(string(content2), "Logger 1 message")
@@ -234,14 +234,14 @@ func (s *LoggerTestSuite) TestLogWithFormatting() {
 	logPath := filepath.Join(s.tempDir, "formatting.log")
 	logger, err := NewFileLogger(logPath)
 	s.Require().NoError(err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	logger.Info("User %s logged in with ID %d", "john_doe", 12345)
 	logger.Error("Failed to process transaction %s: %s", "TX123", "insufficient funds")
 
-	logger.Close()
+	_ = logger.Close()
 
-	content, err := os.ReadFile(logPath)
+	content, err := os.ReadFile(logPath) // #nosec G304 - test file path is controlled
 	s.Require().NoError(err)
 
 	logContent := string(content)

@@ -7,14 +7,16 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
+	"github.com/rxtech-lab/smart-contract-cli/internal/utils"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
 
-var logger, err = log.NewFileLogger("./logs/evm/storage/page.log")
+var logger, _ = log.NewFileLogger("./logs/evm/storage/page.log")
 
 // InputMode represents the current input mode of the page.
 type InputMode int
@@ -74,35 +76,23 @@ type Model struct {
 
 // NewPage creates a new storage client page.
 func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
-	// Get password from shared memory
-	passwordRaw, err := sharedMemory.Get(config.SecureStoragePasswordKey)
-	if err != nil {
-		return Model{
-			router:       router,
-			sharedMemory: sharedMemory,
-			options:      storageOptions,
-			errorMessage: "Failed to get password from shared memory",
-		}
-	}
-
-	password, ok := passwordRaw.(string)
-	if !ok {
-		return Model{
-			router:       router,
-			sharedMemory: sharedMemory,
-			options:      storageOptions,
-			errorMessage: "Password in shared memory is not a string",
-		}
-	}
-
-	// Initialize secure storage
-	secureStorage, err := storage.NewSecureStorageWithEncryption(password, "")
+	secureStorage, password, err := utils.GetSecureStorageFromSharedMemory(sharedMemory)
 	if err != nil {
 		return Model{
 			router:       router,
 			sharedMemory: sharedMemory,
 			options:      storageOptions,
 			errorMessage: fmt.Sprintf("Failed to initialize secure storage: %v", err),
+		}
+	}
+
+	// Test/verify the password
+	if err := secureStorage.TestPassword(password); err != nil {
+		return Model{
+			router:       router,
+			sharedMemory: sharedMemory,
+			options:      storageOptions,
+			errorMessage: fmt.Sprintf("Failed to unlock secure storage: %v", err),
 		}
 	}
 
@@ -170,11 +160,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	}
-
-	// Handle quit (Ctrl+C only, 'q' navigates back)
-	if keyMsg.Type == tea.KeyCtrlC {
-		return m, tea.Quit
 	}
 
 	// Handle input based on mode
@@ -296,11 +281,11 @@ func (m Model) handleConfirmationSelection() Model {
 	selectedOption := m.options[m.selectedIndex]
 	switch m.confirmIndex {
 	case 0: // Use existing
-		m = m.useExistingConfiguration(types.StorageClient(selectedOption.Value))
+		m = m.useExistingConfiguration(selectedOption.Value)
 	case 1: // Change configuration
-		m = m.changeConfiguration(types.StorageClient(selectedOption.Value))
+		m = m.changeConfiguration(selectedOption.Value)
 	case 2: // Remove configuration
-		m = m.removeConfiguration(types.StorageClient(selectedOption.Value))
+		m = m.removeConfiguration(selectedOption.Value)
 	}
 	return m
 }
@@ -350,7 +335,7 @@ func (m Model) removeConfiguration(clientType types.StorageClient) Model {
 	if m.activeClient == clientType {
 		m.activeClient = ""
 		if m.secureStorage != nil {
-			if err := m.secureStorage.Delete(config.StorageKeyTypeKey); err != nil {
+			if err := m.secureStorage.Delete(config.SecureStorageClientTypeKey); err != nil {
 				m.errorMessage = fmt.Sprintf("Failed to clear active client: %v", err)
 			}
 		}
@@ -425,6 +410,21 @@ func (m *Model) saveStorageClient(clientType types.StorageClient, value string) 
 	if err := m.secureStorage.Set(config.SecureStorageClientTypeKey, string(clientType)); err != nil {
 		return fmt.Errorf("failed to set active storage client: %w", err)
 	}
+
+	// Create and store the storage client instance in shared memory
+	// Note: If the storage type is not yet implemented (e.g., Postgres),
+	// we still save the configuration but log a warning
+	storageClient, err := sql.GetStorage(clientType, value)
+	if err != nil {
+		logger.Warn("Failed to create storage client (may not be implemented yet): %v", err)
+		// Don't return error - configuration is still saved, just client not instantiated
+		return nil
+	}
+
+	if err := m.sharedMemory.Set(config.StorageClientKey, storageClient); err != nil {
+		return fmt.Errorf("failed to store storage client in shared memory: %w", err)
+	}
+
 	return nil
 }
 

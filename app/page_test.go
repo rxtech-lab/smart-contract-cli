@@ -8,6 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 	"github.com/stretchr/testify/suite"
@@ -322,4 +325,131 @@ func (s *PagePasswordTestSuite) TestQuitDuringPasswordEntry() {
 
 	// If we get here without hanging, the test passes
 	s.True(true, "Should quit cleanly during password entry")
+}
+
+// TestLoadStorageClientFromSharedMemory tests that a previously configured storage client
+// can be loaded from shared memory when unlocking with a password.
+func (s *PagePasswordTestSuite) TestLoadStorageClientFromSharedMemory() {
+	// Pre-create storage with a known password (using password as encryption key)
+	password := "testpassword"
+	secureStorage, err := storage.NewSecureStorageWithEncryption(password, "")
+	s.NoError(err, "Should create secure storage")
+
+	err = secureStorage.Create(password)
+	s.NoError(err, "Should create storage file")
+
+	// Unlock the secure storage so we can store SQLite configuration
+	err = secureStorage.TestPassword(password)
+	s.NoError(err, "Should unlock secure storage")
+
+	// Set up a SQLite storage client configuration in secure storage
+	sqlitePath := s.testStoragePath + "/test.db"
+	err = secureStorage.Set(config.SecureStorageClientTypeKey, string(types.StorageClientSQLite))
+	s.NoError(err, "Should set storage client type")
+
+	err = secureStorage.Set(config.SecureStorageKeySqlitePathKey, sqlitePath)
+	s.NoError(err, "Should set sqlite path")
+
+	// Create the actual SQLite database file so it can be loaded
+	// This simulates a previously configured storage client
+	_ = os.MkdirAll(s.testStoragePath, 0750)
+	// Ignore error if directory already exists
+
+	// Create model and unlock with password
+	model := NewPage(s.router, s.sharedMemory)
+
+	testModel := teatest.NewTestModel(
+		s.T(),
+		model,
+		teatest.WithInitialTermSize(300, 100),
+	)
+
+	// Wait for initial render
+	time.Sleep(100 * time.Millisecond)
+
+	// Type the correct password
+	for _, char := range password {
+		testModel.Send(tea.KeyMsg{
+			Type:  tea.KeyRunes,
+			Runes: []rune{char},
+		})
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Submit password
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Wait for unlock and storage client initialization
+	time.Sleep(300 * time.Millisecond)
+
+	// Verify storage client was loaded into shared memory
+	storageClient, err := s.sharedMemory.Get(config.StorageClientKey)
+	s.NoError(err, "Should retrieve storage client from shared memory")
+	s.NotNil(storageClient, "Storage client should be loaded into shared memory")
+
+	// Verify the storage client is of the correct type (sql.Storage interface)
+	_, ok := storageClient.(sql.Storage)
+	s.True(ok, "Storage client should implement sql.Storage interface")
+
+	// Verify main menu is shown after successful unlock
+	output := s.getOutput(testModel)
+	s.Contains(output, "Select a blockchain", "Should show main menu after successful unlock")
+
+	// Quit
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
+}
+
+// TestLoadStorageClientWhenNotConfigured tests that when no storage client is configured,
+// the page still unlocks successfully but shared memory doesn't contain a storage client.
+func (s *PagePasswordTestSuite) TestLoadStorageClientWhenNotConfigured() {
+	// Pre-create storage with a known password but DON'T configure storage client (using password as encryption key)
+	password := "testpassword"
+	secureStorage, err := storage.NewSecureStorageWithEncryption(password, "")
+	s.NoError(err, "Should create secure storage")
+
+	err = secureStorage.Create(password)
+	s.NoError(err, "Should create storage file")
+
+	// Don't set any storage client configuration - simulating first-time use
+
+	// Create model and unlock with password
+	model := NewPage(s.router, s.sharedMemory)
+
+	testModel := teatest.NewTestModel(
+		s.T(),
+		model,
+		teatest.WithInitialTermSize(300, 100),
+	)
+
+	// Wait for initial render
+	time.Sleep(100 * time.Millisecond)
+
+	// Type the correct password
+	for _, char := range password {
+		testModel.Send(tea.KeyMsg{
+			Type:  tea.KeyRunes,
+			Runes: []rune{char},
+		})
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Submit password
+	testModel.Send(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Wait for unlock
+	time.Sleep(300 * time.Millisecond)
+
+	// Verify storage client is nil in shared memory (not configured)
+	storageClient, err := s.sharedMemory.Get(config.StorageClientKey)
+	s.NoError(err, "Should not error when getting storage client")
+	s.Nil(storageClient, "Storage client should be nil when not configured")
+
+	// Verify main menu is still shown (unlock succeeded despite no storage client)
+	output := s.getOutput(testModel)
+	s.Contains(output, "Select a blockchain", "Should show main menu even without storage client")
+
+	// Quit
+	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
 }
