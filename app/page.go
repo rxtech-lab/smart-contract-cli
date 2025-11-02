@@ -203,6 +203,31 @@ func (m Model) unlockAndStorePassword(password string) error {
 	if err := m.sharedMemory.Set(config.SecureStoragePasswordKey, password); err != nil {
 		return fmt.Errorf("failed to store password in shared memory: %w", err)
 	}
+
+	// Store secure storage in shared memory
+	if err := m.sharedMemory.Set("secure_storage", m.secureStorage); err != nil {
+		return fmt.Errorf("failed to store secure storage in shared memory: %w", err)
+	}
+
+	// Initialize and store SQL storage client
+	if err := m.initializeStorageClient(); err != nil {
+		return fmt.Errorf("failed to initialize storage client: %w", err)
+	}
+
+	return nil
+}
+
+// initializeStorageClient creates and stores the SQL storage client.
+func (m Model) initializeStorageClient() error {
+	sqlStorage, err := storage.NewSQLiteStorage("")
+	if err != nil {
+		return fmt.Errorf("failed to create SQLite storage: %w", err)
+	}
+
+	if err := m.sharedMemory.Set(config.StorageClientKey, sqlStorage); err != nil {
+		return fmt.Errorf("failed to store storage client: %w", err)
+	}
+
 	return nil
 }
 

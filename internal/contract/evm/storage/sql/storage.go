@@ -44,6 +44,19 @@ type Storage interface {
 	CountConfigs() (count int64, err error)
 	UpdateConfig(id uint, config models.EVMConfig) (err error)
 	DeleteConfig(id uint) (err error)
+
+	// Wallet methods
+	CreateWallet(wallet models.EVMWallet) (id uint, err error)
+	ListWallets(page int64, pageSize int64) (wallets types.Pagination[models.EVMWallet], err error)
+	SearchWallets(query string) (wallets types.Pagination[models.EVMWallet], err error)
+	GetWalletByID(id uint) (wallet models.EVMWallet, err error)
+	GetWalletByAddress(address string) (wallet models.EVMWallet, err error)
+	GetWalletByAlias(alias string) (wallet models.EVMWallet, err error)
+	CountWallets() (count int64, err error)
+	UpdateWallet(id uint, wallet models.EVMWallet) (err error)
+	DeleteWallet(id uint) (err error)
+	WalletExistsByAddress(address string) (exists bool, err error)
+	WalletExistsByAlias(alias string) (exists bool, err error)
 }
 
 func GetStorage(storageType string, params ...any) (Storage, error) {
