@@ -851,6 +851,152 @@ The component system handles rendering; Bubble Tea handles state management and 
 - No external dependencies required (pure unit tests)
 - Tests: route matching, parameter extraction, navigation stack, Bubble Tea integration
 
+### Mock Generation with mockgen
+
+**IMPORTANT: Always use mockgen-generated mocks for new tests. Do NOT create manual mock implementations.**
+
+The project uses `go.uber.org/mock/gomock` for generating mocks. Generated mocks are available for:
+
+- `WalletService`: `internal/contract/evm/wallet/mock_service.go`
+- `Storage`: `internal/contract/evm/storage/sql/mock_storage.go`
+- `SecureStorage`: `internal/storage/mock_secure.go`
+- `Router`: `internal/view/mock_router.go`
+
+#### Managing Mockgen Directives in tools/tools.go
+
+**CRITICAL: Always add new mockgen directives to `tools/tools.go` when creating new interfaces.**
+
+The `tools/tools.go` file is the central location for all code generation directives, including mockgen. This ensures mocks are automatically regenerated when running `make generate`.
+
+**Pattern for Adding New Mocks:**
+
+```go
+// In tools/tools.go, add a new go:generate directive:
+//go:generate go run go.uber.org/mock/mockgen -source=../internal/path/to/interface.go -destination=../internal/path/to/mock_interface.go -package=packagename
+```
+
+**Example:**
+
+If you create a new interface at `internal/services/payment/service.go`, add this line to `tools/tools.go`:
+
+```go
+// Payment service mocks
+//go:generate go run go.uber.org/mock/mockgen -source=../internal/services/payment/service.go -destination=../internal/services/payment/mock_service.go -package=payment
+```
+
+**Workflow:**
+
+1. Create your interface file (e.g., `internal/services/payment/service.go`)
+2. Add the mockgen directive to `tools/tools.go`
+3. Run `make generate` to generate the mock
+4. The mock will be available at the specified destination path
+
+**Why This Approach:**
+
+- **Centralization**: All generation commands in one place
+- **Discoverability**: Easy to see what mocks exist and how they're generated
+- **Automation**: Mocks regenerate automatically with `make generate`
+- **Consistency**: Standard pattern for all mock generation
+- **Version Control**: `tools/tools.go` is committed, ensuring all developers can regenerate mocks
+
+**Generating Mocks:**
+
+```bash
+# Regenerate all mocks (recommended)
+make generate
+
+# Or run go generate directly
+go generate ./tools/tools.go
+```
+
+**Example: Using mockgen in Tests**
+
+```go
+package mypackage_test
+
+import (
+    "testing"
+
+    "github.com/stretchr/testify/suite"
+    "go.uber.org/mock/gomock"
+    "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/wallet"
+    "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
+)
+
+type MyTestSuite struct {
+    suite.Suite
+    ctrl          *gomock.Controller
+    walletService *wallet.MockWalletService
+    storage       *sql.MockStorage
+}
+
+func TestMyTestSuite(t *testing.T) {
+    suite.Run(t, new(MyTestSuite))
+}
+
+func (s *MyTestSuite) SetupTest() {
+    // Create gomock controller
+    s.ctrl = gomock.NewController(s.T())
+
+    // Create mocks
+    s.walletService = wallet.NewMockWalletService(s.ctrl)
+    s.storage = sql.NewMockStorage(s.ctrl)
+
+    // Set up expectations - examples:
+
+    // Expect specific call with exact arguments
+    s.walletService.EXPECT().
+        GetWallet(uint(1)).
+        Return(&models.EVMWallet{ID: 1, Alias: "test"}, nil)
+
+    // Expect call with any arguments
+    s.storage.EXPECT().
+        GetCurrentConfig().
+        Return(models.EVMConfig{}, nil).
+        AnyTimes()  // Can be called any number of times
+
+    // Expect call multiple times
+    s.walletService.EXPECT().
+        ValidatePrivateKey(gomock.Any()).
+        Return(nil).
+        Times(2)
+
+    // Expect call in specific order
+    gomock.InOrder(
+        s.walletService.EXPECT().ImportPrivateKey("alias", "key").Return(wallet, nil),
+        s.walletService.EXPECT().GetWalletWithBalance(uint(1), "url").Return(walletWithBalance, nil),
+    )
+}
+
+func (s *MyTestSuite) TearDownTest() {
+    // Verify all expectations were met
+    s.ctrl.Finish()
+}
+
+func (s *MyTestSuite) TestExample() {
+    // Test code here - mocks will verify expectations automatically
+}
+```
+
+**Key Differences from testify/mock:**
+
+| testify/mock | gomock |
+|--------------|---------|
+| `mock.On("Method", args).Return(values)` | `EXPECT().Method(args).Return(values)` |
+| `mock.AssertExpectations(t)` | `ctrl.Finish()` (in TearDownTest) |
+| `mock.Anything` | `gomock.Any()` |
+| `.Times(n)` | `.Times(n)` (same) |
+| No built-in call ordering | `gomock.InOrder(calls...)` |
+| Implicit any-times | Must specify `.AnyTimes()` explicitly |
+
+**Best Practices:**
+
+1. **Always call `ctrl.Finish()`** in `TearDownTest()` to verify expectations
+2. **Use `AnyTimes()`** for setup methods that may or may not be called
+3. **Use specific matchers** when possible instead of `gomock.Any()`
+4. **Test one behavior per test** - avoid over-specifying expectations
+5. **Order matters** - by default, gomock expects calls in the order they're specified unless using `AnyTimes()`
+
 ## Development Notes
 
 ** Always use test suite testing structure to write tests**
@@ -973,7 +1119,7 @@ func GetRoutes() []view.Route {
 **Generate routes:**
 
 ```bash
-make generate-routes
+make generate
 ```
 
 This command:
@@ -1403,3 +1549,174 @@ internal/log/
 ├── logger_test.go    # Test suite (13 tests)
 └── USAGE.md          # Comprehensive usage guide
 ```
+
+## EVM Wallet Page Pattern
+
+When implementing wallet-related pages in the `app/evm/wallet/` directory, follow these patterns to ensure consistent access to storage, secure storage, and configuration.
+
+### Configuration and Storage Access
+
+**Always use utility functions** to access storage and secure storage from shared memory:
+
+```go
+// Get storage client
+sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+if err != nil {
+    return walletLoadedMsg{err: fmt.Errorf("failed to get storage client: %w", err)}
+}
+
+// Get secure storage
+secureStorage, _, err := utils.GetSecureStorageFromSharedMemory(m.sharedMemory)
+if err != nil {
+    return walletLoadedMsg{err: fmt.Errorf("failed to get secure storage: %w", err)}
+}
+```
+
+**DO NOT** manually type assert storage clients:
+
+```go
+// BAD - Don't do this
+storageClient, err := m.sharedMemory.Get(config.StorageClientKey)
+sqlStorage, isValidStorage := storageClient.(sql.Storage)
+if !isValidStorage {
+    return nil, fmt.Errorf("invalid storage client type")
+}
+
+// GOOD - Use the utility function
+sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+if err != nil {
+    return nil, err
+}
+```
+
+### RPC Endpoint Configuration
+
+**Always retrieve RPC endpoint from EVM config** stored in the database, not from shared memory or hardcoded values:
+
+```go
+// Get the current config
+config, err := sqlStorage.GetCurrentConfig()
+if err != nil {
+    return walletLoadedMsg{err: fmt.Errorf("failed to get current config: %w", err)}
+}
+
+// Validate endpoint exists
+if config.Endpoint == nil {
+    return walletLoadedMsg{err: fmt.Errorf("no RPC endpoint configured. Please configure an endpoint first")}
+}
+
+rpcEndpoint := config.Endpoint.Url
+```
+
+### Selected Wallet Management
+
+**Store and retrieve selected wallet ID from EVM config**, not shared memory:
+
+```go
+// Retrieve selected wallet ID from config
+var selectedWalletID uint
+if config.SelectedWalletID != nil {
+    selectedWalletID = *config.SelectedWalletID
+}
+```
+
+### EVMConfig Model Structure
+
+The `EVMConfig` model includes the following fields for wallet and endpoint management:
+
+- `SelectedWalletID *uint` - Pointer to selected wallet ID (can be nil)
+- `SelectedWallet *EVMWallet` - Preloaded wallet object (use with GORM preload)
+- `EndpointId *uint` - Pointer to RPC endpoint ID
+- `Endpoint *EVMEndpoint` - Preloaded endpoint object with URL
+
+**Loading Related Data:**
+
+```go
+// Preload wallet and endpoint relationships
+config, err := sqlStorage.GetCurrentConfig()
+// This automatically preloads SelectedWallet and Endpoint if IDs are set
+```
+
+### Best Practices
+
+1. **Centralized Configuration**: Always read configuration from the database (via `sqlStorage.GetCurrentConfig()`), not from shared memory
+2. **Use Utility Functions**: Use `utils.GetStorageClientFromSharedMemory()` and `utils.GetSecureStorageFromSharedMemory()` instead of manual type assertions
+3. **Validate Configuration**: Always check if required fields (like `Endpoint`) are present before using them
+4. **Null Safety**: Use pointer checks (`if config.SelectedWalletID != nil`) when accessing optional configuration fields
+5. **Error Context**: Wrap errors with context using `fmt.Errorf("context: %w", err)` for better debugging
+
+### Complete Examples
+
+**Wallet List Page** (see `app/evm/wallet/page.go:72-121`):
+
+```go
+func (m Model) loadWallets() tea.Msg {
+    // Get storage client
+    sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+    if err != nil {
+        return walletLoadedMsg{err: err}
+    }
+
+    // Get current config
+    config, err := sqlStorage.GetCurrentConfig()
+    if err != nil {
+        return walletLoadedMsg{err: err}
+    }
+
+    // Get selected wallet ID from config
+    var selectedWalletID uint
+    if config.SelectedWalletID != nil {
+        selectedWalletID = *config.SelectedWalletID
+    }
+
+    // Load wallets from database
+    wallets, err := sqlStorage.GetAllWallets()
+    return walletLoadedMsg{wallets: wallets, selectedID: selectedWalletID, err: err}
+}
+```
+
+**Wallet Actions Page** (see `app/evm/wallet/actions/page.go:83-146`):
+
+```go
+func (m Model) loadWalletBalance() tea.Msg {
+    // Get storage and secure storage
+    sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+    if err != nil {
+        return balanceLoadedMsg{err: err}
+    }
+
+    secureStorage, _, err := utils.GetSecureStorageFromSharedMemory(m.sharedMemory)
+    if err != nil {
+        return balanceLoadedMsg{err: err}
+    }
+
+    // Get current config with endpoint
+    config, err := sqlStorage.GetCurrentConfig()
+    if err != nil {
+        return balanceLoadedMsg{err: err}
+    }
+
+    // Validate RPC endpoint exists
+    if config.Endpoint == nil {
+        return balanceLoadedMsg{err: fmt.Errorf("no RPC endpoint configured")}
+    }
+
+    // Use endpoint URL for blockchain operations
+    transport, err := transport.NewHttpTransport(config.Endpoint.Url)
+    if err != nil {
+        return balanceLoadedMsg{err: err}
+    }
+
+    // ... perform blockchain operations
+}
+```
+
+### Rationale
+
+This pattern ensures:
+
+1. **Single Source of Truth**: Database is the authoritative source for all configuration
+2. **Type Safety**: Utility functions handle type assertions safely
+3. **Consistency**: All wallet pages follow the same pattern for accessing storage and configuration
+4. **Maintainability**: Changes to storage access patterns only need to be updated in utility functions
+5. **Error Handling**: Clear error context at each step for easier debugging

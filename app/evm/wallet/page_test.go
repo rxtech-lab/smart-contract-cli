@@ -9,7 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	models "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/models/evm"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
 	walletsvc "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/wallet"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
@@ -72,9 +74,40 @@ func (s *WalletPageTestSuite) setupMockWalletService() *walletsvc.MockWalletServ
 	return walletsvc.NewMockWalletService(s.mockCtrl)
 }
 
+// setupMockStorage creates a mock storage client and sets up the shared memory with a default config.
+func (s *WalletPageTestSuite) setupMockStorage(selectedWalletID *uint) {
+	mockStorage := sql.NewMockStorage(s.mockCtrl)
+
+	// Create test config with default RPC endpoint
+	endpoint := &models.EVMEndpoint{
+		ID:   1,
+		Url:  "http://localhost:8545",
+		Name: "Test Endpoint",
+	}
+
+	evmConfig := models.EVMConfig{
+		ID:               1,
+		EndpointId:       &endpoint.ID,
+		Endpoint:         endpoint,
+		SelectedWalletID: selectedWalletID,
+	}
+
+	// Set up mock to return config
+	mockStorage.EXPECT().
+		GetCurrentConfig().
+		Return(evmConfig, nil).
+		AnyTimes()
+
+	// Store mock storage in shared memory as the Storage interface type
+	var storage sql.Storage = mockStorage
+	err := s.sharedMemory.Set(config.StorageClientKey, storage)
+	s.NoError(err, "Should set storage client in shared memory")
+}
+
 // TestEmptyWalletList tests the empty state when no wallets exist.
 func (s *WalletPageTestSuite) TestEmptyWalletList() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	// Mock ListWalletsWithBalances to return empty list
 	mockWalletSvc.EXPECT().
@@ -105,6 +138,8 @@ func (s *WalletPageTestSuite) TestEmptyWalletList() {
 // TestWalletListDisplay tests displaying a list of wallets with balances.
 func (s *WalletPageTestSuite) TestWalletListDisplay() {
 	mockWalletSvc := s.setupMockWalletService()
+	walletID := uint(1)
+	s.setupMockStorage(&walletID)
 
 	balance1 := new(big.Int)
 	balance1.SetString("1000000000000000000", 10) // 1 ETH
@@ -163,6 +198,7 @@ func (s *WalletPageTestSuite) TestWalletListDisplay() {
 // TestNavigationUpDown tests keyboard navigation through wallet list.
 func (s *WalletPageTestSuite) TestNavigationUpDown() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	testWallets := []walletsvc.WalletWithBalance{
 		{
@@ -224,6 +260,7 @@ func (s *WalletPageTestSuite) TestNavigationUpDown() {
 // TestNavigationWithVimKeys tests navigation using vim-style keys (j/k).
 func (s *WalletPageTestSuite) TestNavigationWithVimKeys() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	testWallets := []walletsvc.WalletWithBalance{
 		{
@@ -277,6 +314,7 @@ func (s *WalletPageTestSuite) TestNavigationWithVimKeys() {
 // TestRefreshWallets tests the refresh functionality with 'r' key.
 func (s *WalletPageTestSuite) TestRefreshWallets() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	testWallets := []walletsvc.WalletWithBalance{
 		{
@@ -321,6 +359,7 @@ func (s *WalletPageTestSuite) TestRefreshWallets() {
 // TestBackNavigation tests going back with 'esc' or 'q'.
 func (s *WalletPageTestSuite) TestBackNavigation() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	mockWalletSvc.EXPECT().
 		ListWalletsWithBalances(int64(1), int64(100), "http://localhost:8545").
@@ -372,6 +411,7 @@ func (s *WalletPageTestSuite) TestBackNavigation() {
 // TestBalanceUnavailable tests display when balance is nil.
 func (s *WalletPageTestSuite) TestBalanceUnavailable() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	testWallets := []walletsvc.WalletWithBalance{
 		{
@@ -411,6 +451,7 @@ func (s *WalletPageTestSuite) TestBalanceUnavailable() {
 // TestHelpText tests that help text is displayed correctly.
 func (s *WalletPageTestSuite) TestHelpText() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	mockWalletSvc.EXPECT().
 		ListWalletsWithBalances(int64(1), int64(100), "http://localhost:8545").
@@ -439,6 +480,7 @@ func (s *WalletPageTestSuite) TestHelpText() {
 // TestAddFirstWallet tests pressing 'a' to add first wallet when list is empty.
 func (s *WalletPageTestSuite) TestAddFirstWallet() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	// Mock empty wallet list
 	mockWalletSvc.EXPECT().
@@ -491,6 +533,7 @@ func (s *WalletPageTestSuite) TestAddFirstWallet() {
 // TestAddWalletFromNonEmptyList tests pressing 'a' when wallets already exist.
 func (s *WalletPageTestSuite) TestAddWalletFromNonEmptyList() {
 	mockWalletSvc := s.setupMockWalletService()
+	s.setupMockStorage(nil)
 
 	testWallets := []walletsvc.WalletWithBalance{
 		{

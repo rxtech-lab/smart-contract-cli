@@ -9,27 +9,27 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// MockView is a mock implementation of View for testing.
-type MockView struct {
+// SimpleView is a mock implementation of View for testing.
+type SimpleView struct {
 	name        string
 	initCalled  bool
 	viewContent string
 }
 
-func (m *MockView) Init() tea.Cmd {
+func (m *SimpleView) Init() tea.Cmd {
 	m.initCalled = true
 	return nil
 }
 
-func (m *MockView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *SimpleView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *MockView) View() string {
+func (m *SimpleView) View() string {
 	return m.viewContent
 }
 
-func (m *MockView) Help() (string, HelpDisplayOption) {
+func (m *SimpleView) Help() (string, HelpDisplayOption) {
 	return "", HelpDisplayOptionAppend
 }
 
@@ -53,7 +53,7 @@ func (suite *RouterTestSuite) TestNewRouter() {
 
 // TestAddRoute tests adding routes.
 func (suite *RouterTestSuite) TestAddRoute() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	route := Route{
 		Path:      "/",
 		Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView },
@@ -68,8 +68,8 @@ func (suite *RouterTestSuite) TestAddRoute() {
 
 // TestSetRoutes tests setting multiple routes at once.
 func (suite *RouterTestSuite) TestSetRoutes() {
-	mockView1 := &MockView{name: "home", viewContent: "Home View"}
-	mockView2 := &MockView{name: "about", viewContent: "About View"}
+	mockView1 := &SimpleView{name: "home", viewContent: "Home View"}
+	mockView2 := &SimpleView{name: "about", viewContent: "About View"}
 
 	routes := []Route{
 		{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }},
@@ -86,8 +86,8 @@ func (suite *RouterTestSuite) TestSetRoutes() {
 
 // TestRemoveRoute tests removing a route.
 func (suite *RouterTestSuite) TestRemoveRoute() {
-	mockView1 := &MockView{name: "home", viewContent: "Home View"}
-	mockView2 := &MockView{name: "about", viewContent: "About View"}
+	mockView1 := &SimpleView{name: "home", viewContent: "Home View"}
+	mockView2 := &SimpleView{name: "about", viewContent: "About View"}
 
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})
@@ -101,7 +101,7 @@ func (suite *RouterTestSuite) TestRemoveRoute() {
 
 // TestNavigateTo tests navigation to a route.
 func (suite *RouterTestSuite) TestNavigateTo() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/", nil)
@@ -114,7 +114,7 @@ func (suite *RouterTestSuite) TestNavigateTo() {
 
 // TestNavigateToWithQueryParams tests navigation with query parameters.
 func (suite *RouterTestSuite) TestNavigateToWithQueryParams() {
-	mockView := &MockView{name: "users", viewContent: "Users View"}
+	mockView := &SimpleView{name: "users", viewContent: "Users View"}
 	suite.router.AddRoute(Route{Path: "/users", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	queryParams := map[string]string{
@@ -138,7 +138,7 @@ func (suite *RouterTestSuite) TestNavigateToInvalidRoute() {
 
 // TestNavigateToWithPathParams tests navigation with path parameters.
 func (suite *RouterTestSuite) TestNavigateToWithPathParams() {
-	mockView := &MockView{name: "user", viewContent: "User View"}
+	mockView := &SimpleView{name: "user", viewContent: "User View"}
 	suite.router.AddRoute(Route{Path: "/users/:id", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/users/123", nil)
@@ -149,7 +149,7 @@ func (suite *RouterTestSuite) TestNavigateToWithPathParams() {
 
 // TestNavigateToWithMultiplePathParams tests navigation with multiple path parameters.
 func (suite *RouterTestSuite) TestNavigateToWithMultiplePathParams() {
-	mockView := &MockView{name: "comment", viewContent: "Comment View"}
+	mockView := &SimpleView{name: "comment", viewContent: "Comment View"}
 	suite.router.AddRoute(Route{Path: "/posts/:postId/comments/:commentId", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/posts/456/comments/789", nil)
@@ -160,8 +160,8 @@ func (suite *RouterTestSuite) TestNavigateToWithMultiplePathParams() {
 
 // TestReplaceRoute tests replacing the current route.
 func (suite *RouterTestSuite) TestReplaceRoute() {
-	mockView1 := &MockView{name: "home", viewContent: "Home View"}
-	mockView2 := &MockView{name: "about", viewContent: "About View"}
+	mockView1 := &SimpleView{name: "home", viewContent: "Home View"}
+	mockView2 := &SimpleView{name: "about", viewContent: "About View"}
 
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})
@@ -180,9 +180,9 @@ func (suite *RouterTestSuite) TestReplaceRoute() {
 
 // TestBackNavigation tests navigating back.
 func (suite *RouterTestSuite) TestBackNavigation() {
-	mockView1 := &MockView{name: "home", viewContent: "Home View"}
-	mockView2 := &MockView{name: "about", viewContent: "About View"}
-	mockView3 := &MockView{name: "contact", viewContent: "Contact View"}
+	mockView1 := &SimpleView{name: "home", viewContent: "Home View"}
+	mockView2 := &SimpleView{name: "about", viewContent: "About View"}
+	mockView3 := &SimpleView{name: "contact", viewContent: "Contact View"}
 
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})
@@ -212,7 +212,7 @@ func (suite *RouterTestSuite) TestBackNavigation() {
 
 // TestBackWithEmptyStack tests back navigation with empty stack.
 func (suite *RouterTestSuite) TestBackWithEmptyStack() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/", nil)
@@ -226,8 +226,8 @@ func (suite *RouterTestSuite) TestBackWithEmptyStack() {
 
 // TestCanGoBack tests the CanGoBack method.
 func (suite *RouterTestSuite) TestCanGoBack() {
-	mockView1 := &MockView{name: "home", viewContent: "Home View"}
-	mockView2 := &MockView{name: "about", viewContent: "About View"}
+	mockView1 := &SimpleView{name: "home", viewContent: "Home View"}
+	mockView2 := &SimpleView{name: "about", viewContent: "About View"}
 
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/about", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})
@@ -245,7 +245,7 @@ func (suite *RouterTestSuite) TestCanGoBack() {
 
 // TestGetCurrentRoute tests getting the current route.
 func (suite *RouterTestSuite) TestGetCurrentRoute() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	componentFunc := func(r Router, sharedMemory storage.SharedMemory) View { return mockView }
 	route := Route{Path: "/", Component: componentFunc}
 
@@ -267,7 +267,7 @@ func (suite *RouterTestSuite) TestGetCurrentRouteEmpty() {
 
 // TestGetQueryParamNotFound tests getting a non-existent query parameter.
 func (suite *RouterTestSuite) TestGetQueryParamNotFound() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -278,7 +278,7 @@ func (suite *RouterTestSuite) TestGetQueryParamNotFound() {
 
 // TestGetParamNotFound tests getting a non-existent path parameter.
 func (suite *RouterTestSuite) TestGetParamNotFound() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -295,7 +295,7 @@ func (suite *RouterTestSuite) TestGetPathEmpty() {
 
 // TestRefresh tests refreshing the current route.
 func (suite *RouterTestSuite) TestRefresh() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -308,7 +308,7 @@ func (suite *RouterTestSuite) TestRefresh() {
 
 // TestViewMethod tests the View method.
 func (suite *RouterTestSuite) TestViewMethod() {
-	mockView := &MockView{name: "home", viewContent: "Home View Content"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View Content"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -327,7 +327,7 @@ func (suite *RouterTestSuite) TestViewMethodNoRoute() {
 
 // TestInitMethod tests the Init method.
 func (suite *RouterTestSuite) TestInitMethod() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -341,7 +341,7 @@ func (suite *RouterTestSuite) TestInitMethod() {
 
 // TestUpdateMethod tests the Update method.
 func (suite *RouterTestSuite) TestUpdateMethod() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 	err := suite.router.NavigateTo("/", nil)
 	assert.NoError(suite.T(), err)
@@ -355,7 +355,7 @@ func (suite *RouterTestSuite) TestUpdateMethod() {
 
 // TestMatchPatternExactMatch tests exact route matching.
 func (suite *RouterTestSuite) TestMatchPatternExactMatch() {
-	mockView := &MockView{name: "home", viewContent: "Home View"}
+	mockView := &SimpleView{name: "home", viewContent: "Home View"}
 	suite.router.AddRoute(Route{Path: "/exact", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/exact", nil)
@@ -365,7 +365,7 @@ func (suite *RouterTestSuite) TestMatchPatternExactMatch() {
 
 // TestMatchPatternComplexParams tests complex parameterized routes.
 func (suite *RouterTestSuite) TestMatchPatternComplexParams() {
-	mockView := &MockView{name: "complex", viewContent: "Complex View"}
+	mockView := &SimpleView{name: "complex", viewContent: "Complex View"}
 	suite.router.AddRoute(Route{Path: "/api/:version/users/:userId/posts/:postId", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView }})
 
 	err := suite.router.NavigateTo("/api/v1/users/100/posts/200", nil)
@@ -377,9 +377,9 @@ func (suite *RouterTestSuite) TestMatchPatternComplexParams() {
 
 // TestNavigationStackIntegrity tests that navigation stack maintains integrity.
 func (suite *RouterTestSuite) TestNavigationStackIntegrity() {
-	mockView1 := &MockView{name: "view1", viewContent: "View 1"}
-	mockView2 := &MockView{name: "view2", viewContent: "View 2"}
-	mockView3 := &MockView{name: "view3", viewContent: "View 3"}
+	mockView1 := &SimpleView{name: "view1", viewContent: "View 1"}
+	mockView2 := &SimpleView{name: "view2", viewContent: "View 2"}
+	mockView3 := &SimpleView{name: "view3", viewContent: "View 3"}
 
 	suite.router.AddRoute(Route{Path: "/view1", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/view2", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})
@@ -404,8 +404,8 @@ func (suite *RouterTestSuite) TestNavigationStackIntegrity() {
 
 // TestParameterPersistenceAcrossNavigation tests that parameters are preserved during navigation.
 func (suite *RouterTestSuite) TestParameterPersistenceAcrossNavigation() {
-	mockView1 := &MockView{name: "users", viewContent: "Users View"}
-	mockView2 := &MockView{name: "posts", viewContent: "Posts View"}
+	mockView1 := &SimpleView{name: "users", viewContent: "Users View"}
+	mockView2 := &SimpleView{name: "posts", viewContent: "Posts View"}
 
 	suite.router.AddRoute(Route{Path: "/users/:id", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView1 }})
 	suite.router.AddRoute(Route{Path: "/posts/:postId", Component: func(r Router, sharedMemory storage.SharedMemory) View { return mockView2 }})

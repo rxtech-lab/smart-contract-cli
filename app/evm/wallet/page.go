@@ -7,8 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rxtech-lab/smart-contract-cli/internal/config"
-	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/wallet"
 	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
@@ -53,22 +51,11 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) createWalletService() (wallet.WalletService, error) {
-	keys, err := m.sharedMemory.List()
+	// Get storage client from shared memory using utils
+	sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list shared memory keys: %w", err)
-	}
-	logger.Info("Shared memory keys: %v", keys)
-	// Get storage client from shared memory
-	storageClient, err := m.sharedMemory.Get(config.StorageClientKey)
-	if err != nil || storageClient == nil {
 		logger.Error("Failed to get storage client from shared memory: %v", err)
-		return nil, fmt.Errorf("storage client not initialized")
-	}
-
-	sqlStorage, isValidStorage := storageClient.(sql.Storage)
-	if !isValidStorage {
-		logger.Error("Invalid storage client type")
-		return nil, fmt.Errorf("invalid storage client type")
+		return nil, fmt.Errorf("failed to get storage client from shared memory: %w", err)
 	}
 
 	// Get secure storage
@@ -92,16 +79,30 @@ func (m Model) loadWallets() tea.Msg {
 		walletService = svc
 	}
 
-	// Get RPC endpoint (simplified - using localhost for now)
-	rpcEndpoint := "http://localhost:8545"
+	// Get RPC endpoint from database
+	sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+	if err != nil {
+		logger.Error("Failed to get storage client from shared memory: %v", err)
+		return walletLoadedMsg{err: fmt.Errorf("failed to get storage client from shared memory: %w", err)}
+	}
 
-	// Get selected wallet ID from shared memory
-	selectedWalletIDVal, _ := m.sharedMemory.Get(config.SelectedWalletIDKey)
+	// Get the current config
+	config, err := sqlStorage.GetCurrentConfig()
+	if err != nil {
+		logger.Error("Failed to get current config: %v", err)
+		return walletLoadedMsg{err: fmt.Errorf("failed to get current config: %w", err)}
+	}
+	if config.Endpoint == nil {
+		logger.Error("No RPC endpoint configured")
+		return walletLoadedMsg{err: fmt.Errorf("no RPC endpoint configured. Please configure an endpoint first")}
+	}
+	rpcEndpoint := config.Endpoint.Url
+	logger.Info("Using RPC endpoint: %s", rpcEndpoint)
+
+	// Get selected wallet ID from config
 	var selectedWalletID uint
-	if selectedWalletIDVal != nil {
-		if id, ok := selectedWalletIDVal.(uint); ok {
-			selectedWalletID = id
-		}
+	if config.SelectedWalletID != nil {
+		selectedWalletID = *config.SelectedWalletID
 	}
 
 	// List wallets with balances
@@ -169,12 +170,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Navigate to wallet actions
 			if len(m.wallets) > 0 {
 				walletID := m.wallets[m.selectedIndex].Wallet.ID
-				return m, func() tea.Msg {
-					_ = m.router.NavigateTo("/evm/wallet/actions", map[string]string{
-						"id": strconv.FormatUint(uint64(walletID), 10),
-					})
-					return nil
+				logger.Info("Enter pressed, navigating to wallet actions for wallet ID: %d", walletID)
+				err := m.router.NavigateTo("/evm/wallet/actions", map[string]string{
+					"id": strconv.FormatUint(uint64(walletID), 10),
+				})
+				if err != nil {
+					logger.Error("Navigation error: %v", err)
 				}
+				return m, nil
 			}
 
 		case "a":

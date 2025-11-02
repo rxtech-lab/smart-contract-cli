@@ -39,3 +39,5 @@ smart-contract-cli
 routes_gen.go
 bin/
 mock_*.go
+wallet.test
+~/smart_contract_cli

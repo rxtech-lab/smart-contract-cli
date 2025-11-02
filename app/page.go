@@ -13,6 +13,7 @@ import (
 	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
+	"github.com/rxtech-lab/smart-contract-cli/internal/utils"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
 
@@ -175,6 +176,12 @@ func (m Model) handlePasswordSubmit(password string) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if err := m.createConfig(); err != nil {
+		logger.Error("Failed to create config: %v", err)
+		m.errorMessage = fmt.Sprintf("Failed to create config: %v", err)
+		return m, nil
+	}
+
 	m.isUnlocked = true
 	m.errorMessage = ""
 	return m, nil
@@ -266,6 +273,30 @@ func (m Model) unlockAndStorePassword(password string) error {
 	if err := m.sharedMemory.Set(config.StorageClientKey, storageClient); err != nil {
 		logger.Error("Failed to store storage client in shared memory: %v", err)
 		return fmt.Errorf("failed to store storage client in shared memory: %w", err)
+	}
+	return nil
+}
+
+func (m Model) createConfig() error {
+	// Check if storage client exists in shared memory
+	storageClient, err := m.sharedMemory.Get(config.StorageClientKey)
+	if err != nil {
+		return fmt.Errorf("failed to get storage client from shared memory: %w", err)
+	}
+
+	// If storage client is nil, it means it hasn't been configured yet
+	// This is valid for first-time users, so we don't treat it as an error
+	if storageClient == nil {
+		logger.Info("Storage client not configured yet, skipping config creation")
+		return nil
+	}
+
+	sqlStorage, err := utils.GetStorageClientFromSharedMemory(m.sharedMemory)
+	if err != nil {
+		return fmt.Errorf("failed to get storage client from shared memory: %w", err)
+	}
+	if err := sqlStorage.CreateConfig(); err != nil {
+		return fmt.Errorf("failed to create config: %w", err)
 	}
 	return nil
 }

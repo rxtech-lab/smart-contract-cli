@@ -10,6 +10,8 @@ type EVMConfig struct {
 	SelectedEVMContract   *EVMContract `json:"selected_evm_contract,omitempty" gorm:"foreignKey:SelectedEVMContractId;references:ID"`
 	SelectedEVMAbiId      *uint        `json:"selected_evm_abi_id" gorm:"index;constraint:OnDelete:SET NULL"`
 	SelectedEVMAbi        *EvmAbi      `json:"selected_evm_abi,omitempty" gorm:"foreignKey:SelectedEVMAbiId;references:ID"`
+	SelectedWalletID      *uint        `json:"selected_wallet_id" gorm:"index;constraint:OnDelete:SET NULL"`
+	SelectedWallet        *EVMWallet   `json:"selected_wallet,omitempty" gorm:"foreignKey:SelectedWalletID;references:ID"`
 	CreatedAt             time.Time    `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt             time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
 }

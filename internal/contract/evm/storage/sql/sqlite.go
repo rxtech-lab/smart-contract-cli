@@ -225,27 +225,17 @@ func (s *SQLiteStorage) UpdateContract(contractID uint, contract models.EVMContr
 }
 
 // Config Methods
-
-// CountConfigs implements Storage.
-func (s *SQLiteStorage) CountConfigs() (count int64, err error) {
-	count, err = s.configQueries.Count()
-	if err != nil {
-		return 0, fmt.Errorf("failed to count configs: %w", err)
-	}
-	return count, nil
-}
-
 // CreateConfig implements Storage.
-func (s *SQLiteStorage) CreateConfig(config models.EVMConfig) (id uint, err error) {
-	if err := s.configQueries.Create(&config); err != nil {
-		return 0, fmt.Errorf("failed to create config: %w", err)
+func (s *SQLiteStorage) CreateConfig() (err error) {
+	if err := s.configQueries.Create(); err != nil {
+		return fmt.Errorf("failed to create config: %w", err)
 	}
-	return config.ID, nil
+	return nil
 }
 
 // DeleteConfig implements Storage.
-func (s *SQLiteStorage) DeleteConfig(id uint) (err error) {
-	if err := s.configQueries.Delete(id); err != nil {
+func (s *SQLiteStorage) DeleteConfig() (err error) {
+	if err := s.configQueries.Delete(); err != nil {
 		return fmt.Errorf("failed to delete config: %w", err)
 	}
 	return nil
@@ -260,32 +250,9 @@ func (s *SQLiteStorage) GetConfigByID(id uint) (config models.EVMConfig, err err
 	return *result, nil
 }
 
-// ListConfigs implements Storage.
-func (s *SQLiteStorage) ListConfigs(page int64, pageSize int64) (configs types.Pagination[models.EVMConfig], err error) {
-	result, err := s.configQueries.List(page, pageSize)
-	if err != nil {
-		return types.Pagination[models.EVMConfig]{}, fmt.Errorf("failed to list configs: %w", err)
-	}
-	return *result, nil
-}
-
-// SearchConfigs implements Storage.
-func (s *SQLiteStorage) SearchConfigs(query string) (configs types.Pagination[models.EVMConfig], err error) {
-	result, err := s.configQueries.Search(query)
-	if err != nil {
-		return types.Pagination[models.EVMConfig]{}, fmt.Errorf("failed to search configs: %w", err)
-	}
-	return *result, nil
-}
-
 // UpdateConfig implements Storage.
-func (s *SQLiteStorage) UpdateConfig(configID uint, config models.EVMConfig) (err error) {
-	updates := map[string]any{
-		"endpoint_id":              config.EndpointId,
-		"selected_evm_contract_id": config.SelectedEVMContractId,
-		"selected_evm_abi_id":      config.SelectedEVMAbiId,
-	}
-	if err := s.configQueries.Update(configID, updates); err != nil {
+func (s *SQLiteStorage) UpdateConfig(config models.EVMConfig) (err error) {
+	if err := s.configQueries.Update(&config); err != nil {
 		return fmt.Errorf("failed to update config: %w", err)
 	}
 	return nil
@@ -393,6 +360,15 @@ func (s *SQLiteStorage) WalletExistsByAlias(alias string) (exists bool, err erro
 		return false, fmt.Errorf("failed to check wallet existence by alias: %w", err)
 	}
 	return exists, nil
+}
+
+// GetCurrentConfig implements Storage.
+func (s *SQLiteStorage) GetCurrentConfig() (config models.EVMConfig, err error) {
+	result, err := s.configQueries.GetCurrent()
+	if err != nil {
+		return models.EVMConfig{}, fmt.Errorf("failed to get current config: %w", err)
+	}
+	return *result, nil
 }
 
 // NewSQLiteDB creates a new SQLite database connection.
