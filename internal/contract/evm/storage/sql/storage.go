@@ -3,7 +3,6 @@ package sql
 import (
 	"fmt"
 
-	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	models "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/models/evm"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 )
@@ -59,9 +58,9 @@ type Storage interface {
 	WalletExistsByAlias(alias string) (exists bool, err error)
 }
 
-func GetStorage(storageType string, params ...any) (Storage, error) {
+func GetStorage(storageType types.StorageClient, params ...any) (Storage, error) {
 	switch storageType {
-	case config.StorageClientTypeSQLite:
+	case types.StorageClientSQLite:
 		if len(params) == 0 || params[0] == nil {
 			return nil, fmt.Errorf("sqlite path is required")
 		}

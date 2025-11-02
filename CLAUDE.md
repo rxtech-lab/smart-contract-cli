@@ -73,6 +73,10 @@ internal/
 │       └── transport/    # Blockchain communication
 │           ├── transport.go     # Transport interface
 │           └── http.go          # HttpTransport (JSON-RPC via go-ethereum)
+├── log/                 # Logging infrastructure
+│   ├── logger.go        # Logger with file rotation support
+│   ├── logger_test.go   # Comprehensive test suite
+│   └── USAGE.md         # Detailed usage guide
 └── view/                # TUI (Terminal User Interface) layer
     ├── types.go         # Router interface and Route definitions
     └── router.go        # Router implementation for Bubble Tea navigation
@@ -1034,3 +1038,305 @@ bin/            # Compiled tools
 - Requires code generation step (added to Makefile)
 - Dynamic segments use `_param` convention instead of `[param]` (Go package naming limitation)
 - Generated file should not be manually edited (regenerate instead)
+
+## Logging System
+
+### Overview
+
+The logging system (`internal/log/`) provides structured logging with file rotation support, built on top of `zerolog` and `lumberjack`. It supports writing logs to console, file, or both simultaneously with automatic log rotation based on file size, age, and backup count.
+
+**Location:** `internal/log/`
+**Dependencies:**
+- `github.com/rs/zerolog` - Fast, structured logging
+- `gopkg.in/natefinch/lumberjack.v2` - Log rotation
+
+### Core Features
+
+1. **Multiple Output Modes**:
+   - Console only (default, backward compatible)
+   - File only (no console output)
+   - Both console and file (recommended for production)
+
+2. **Automatic Log Rotation**:
+   - Size-based rotation (default: 10 MB)
+   - Time-based retention (default: 30 days)
+   - Backup file management (default: 5 backups)
+   - Optional compression of rotated files (gzip)
+
+3. **Structured Logging**:
+   - JSON format for file logs (machine-parsable)
+   - Pretty console output with timestamps
+   - Multiple log levels: Debug, Info, Warn, Error, Fatal
+
+### Quick Start
+
+**Console Only (Backward Compatible):**
+```go
+logger := log.NewLogger()
+logger.Info("Application started")
+```
+
+**File and Console (Recommended):**
+```go
+config := log.DefaultConfig()
+logger, err := log.NewLoggerWithConfig(config)
+if err != nil {
+    panic(err)
+}
+defer logger.Close()
+
+logger.Info("Application started")
+logger.Error("Error: %v", err)
+```
+
+**File Only:**
+```go
+logger, err := log.NewFileLogger("./logs/app.log")
+if err != nil {
+    panic(err)
+}
+defer logger.Close()
+```
+
+### Configuration
+
+**Config Struct:**
+```go
+type Config struct {
+    LogFilePath   string  // Default: "./logs/app.log"
+    MaxSize       int     // MB, Default: 10
+    MaxBackups    int     // Default: 5
+    MaxAge        int     // Days, Default: 30
+    Compress      bool    // Default: true
+    ConsoleOutput bool    // Default: true
+}
+```
+
+**Default Configuration:**
+```go
+config := log.DefaultConfig()
+// Returns:
+// LogFilePath: "./logs/app.log"
+// MaxSize: 10 MB
+// MaxBackups: 5
+// MaxAge: 30 days
+// Compress: true
+// ConsoleOutput: true
+```
+
+**Custom Configuration:**
+```go
+config := log.Config{
+    LogFilePath:   "./logs/myapp.log",
+    MaxSize:       20,    // 20 MB before rotation
+    MaxBackups:    10,    // Keep 10 old files
+    MaxAge:        60,    // Keep for 60 days
+    Compress:      true,  // Gzip old files
+    ConsoleOutput: false, // File only
+}
+
+logger, err := log.NewLoggerWithConfig(config)
+```
+
+### Log Levels
+
+```go
+logger.Debug("Debug info: %v", data)    // Development/troubleshooting
+logger.Info("User %s logged in", user)  // Normal flow
+logger.Warn("Disk space low: %d%%", pct) // Warnings
+logger.Error("Failed: %v", err)         // Errors
+logger.Fatal("Critical: %v", err)       // Fatal (exits app)
+```
+
+### Usage in Bubble Tea Applications
+
+**Step 1: Add logger to Model**
+```go
+type Model struct {
+    router view.Router
+    logger *log.Logger  // Add logger field
+    // ... other fields
+}
+```
+
+**Step 2: Initialize in NewPage**
+```go
+func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
+    // Create logger
+    logger, err := log.NewLoggerWithConfig(log.DefaultConfig())
+    if err != nil {
+        // Fallback to console-only
+        logger = log.NewLogger()
+    }
+
+    model := Model{
+        router: router,
+        logger: logger,
+    }
+
+    logger.Info("Page initialized")
+    return model
+}
+```
+
+**Step 3: Log throughout application**
+```go
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    m.logger.Debug("Update called with: %T", msg)
+
+    keyMsg, ok := msg.(tea.KeyMsg)
+    if !ok {
+        return m, nil
+    }
+
+    m.logger.Info("Key pressed: %s", keyMsg.String())
+
+    switch keyMsg.String() {
+    case "enter":
+        m.logger.Info("Navigating to: %s", m.selectedOption.Route)
+        err := m.router.NavigateTo(m.selectedOption.Route, nil)
+        if err != nil {
+            m.logger.Error("Navigation failed: %v", err)
+        }
+    case "q", "ctrl+c":
+        m.logger.Info("User quit")
+        m.logger.Close() // Flush logs
+        return m, tea.Quit
+    }
+
+    return m, nil
+}
+```
+
+**Step 4: Clean up (in main.go)**
+```go
+func main() {
+    logger, err := log.NewLoggerWithConfig(log.DefaultConfig())
+    if err != nil {
+        panic(err)
+    }
+    defer logger.Close()  // Ensure flush on exit
+
+    // ... create and run Bubble Tea program
+}
+```
+
+### Log Rotation
+
+Logs rotate automatically based on configuration:
+
+**Rotation Triggers:**
+- File size exceeds `MaxSize` (MB)
+- File age exceeds `MaxAge` (days)
+- Number of backups exceeds `MaxBackups`
+
+**File Structure After Rotation:**
+```
+logs/
+├── app.log           # Current log file
+├── app.log.1         # Most recent backup
+├── app.log.2.gz      # Older, compressed
+├── app.log.3.gz
+└── app.log.4.gz
+```
+
+**Manual Rotation:**
+```go
+err := logger.Rotate()
+if err != nil {
+    logger.Error("Rotation failed: %v", err)
+}
+```
+
+### Testing
+
+**Location:** `internal/log/logger_test.go`
+
+**Framework:** `testify/suite` (project standard)
+
+**Coverage:** 13 comprehensive test cases:
+- Logger initialization (console, file, both)
+- Configuration handling
+- File writing and reading
+- Log levels (Debug, Info, Warn, Error)
+- Log rotation
+- Directory creation
+- Multiple concurrent loggers
+- Message formatting
+
+**Running Tests:**
+```bash
+go test ./internal/log/ -v
+```
+
+### Best Practices
+
+1. **Always close file loggers**:
+   ```go
+   defer logger.Close()
+   ```
+
+2. **Use appropriate log levels**:
+   - Debug: Development only
+   - Info: Normal application flow
+   - Warn: Unexpected but handled
+   - Error: Errors requiring attention
+   - Fatal: Unrecoverable errors
+
+3. **Include context in messages**:
+   ```go
+   logger.Info("User %s logged in from %s", username, ipAddress)
+   logger.Error("Query failed: query=%s, error=%v", query, err)
+   ```
+
+4. **Don't log sensitive data**:
+   ```go
+   // BAD
+   logger.Info("Password: %s", password)
+
+   // GOOD
+   logger.Info("User authenticated successfully")
+   ```
+
+5. **Use file logging in production**:
+   ```go
+   config := log.DefaultConfig()
+   config.ConsoleOutput = false  // File only
+   logger, _ := log.NewLoggerWithConfig(config)
+   ```
+
+### Log File Location
+
+**Default:** `./logs/app.log`
+
+Logs are written relative to the application's working directory. The directory is created automatically if it doesn't exist (permissions: 0755).
+
+**Custom Location:**
+```go
+config := log.DefaultConfig()
+config.LogFilePath = "/var/log/myapp/app.log"
+```
+
+### Performance Considerations
+
+1. **Console output**: Adds overhead; disable in production
+2. **Compression**: CPU overhead but saves disk space
+3. **Log level**: Use Info/Warn/Error in production (not Debug)
+4. **Rotation frequency**: Larger `MaxSize` = less frequent rotation
+
+### Integration Example
+
+See `internal/log/USAGE.md` for detailed examples including:
+- Full Bubble Tea integration
+- Error handling patterns
+- Production configuration
+- Troubleshooting guide
+
+### Directory Structure
+
+```
+internal/log/
+├── logger.go         # Core logger implementation
+├── logger_test.go    # Test suite (13 tests)
+└── USAGE.md          # Comprehensive usage guide
+```

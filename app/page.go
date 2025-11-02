@@ -7,10 +7,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
+	"github.com/rxtech-lab/smart-contract-cli/internal/errors"
+	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
+
+var logger, err = log.NewFileLogger("./logs/home/page.log")
 
 type Option struct {
 	Label string
@@ -155,12 +161,15 @@ func (m Model) handlePasswordSubmit(password string) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	logger.Info("Creating storage if needed")
 	if err := m.createStorageIfNeeded(password); err != nil {
+		logger.Error("Failed to create storage: %v", err)
 		m.errorMessage = fmt.Sprintf("Failed to create storage: %v", err)
 		return m, nil
 	}
 
 	if err := m.unlockAndStorePassword(password); err != nil {
+		logger.Error("Failed to unlock: %v", err)
 		m.errorMessage = fmt.Sprintf("Failed to unlock: %v", err)
 		return m, nil
 	}
@@ -184,6 +193,33 @@ func (m *Model) ensureSecureStorageInitialized() error {
 	return nil
 }
 
+func (m Model) tryLoadStorageClient() (sql.Storage, error) {
+	// load storage client from secure storage
+	storageClientTypeString, err := m.secureStorage.Get(config.SecureStorageClientTypeKey)
+	if err != nil {
+		return nil, errors.NewStorageClientNotInitializedError("storage client not initialized")
+	}
+	logger.Info("Got Storage client type: %v", storageClientTypeString)
+
+	storageClientType := types.StorageClient(storageClientTypeString)
+	switch storageClientType {
+	case types.StorageClientSQLite:
+		sqlitePath, err := m.secureStorage.Get(config.SecureStorageKeySqlitePathKey)
+		if err != nil {
+			return nil, errors.NewStorageClientNotInitializedError("sqlite path not initialized")
+		}
+		return sql.GetStorage(types.StorageClientSQLite, sqlitePath)
+	case types.StorageClientPostgres:
+		postgresURL, err := m.secureStorage.Get(config.SecureStorageKeyPostgresURLKey)
+		if err != nil {
+			return nil, errors.NewStorageClientNotInitializedError("postgres url not initialized")
+		}
+		return sql.GetStorage(types.StorageClientPostgres, postgresURL)
+	default:
+		return nil, errors.NewStorageClientNotInitializedError(fmt.Sprintf("invalid storage client type: %s", storageClientType))
+	}
+}
+
 // createStorageIfNeeded creates storage if it doesn't exist.
 func (m Model) createStorageIfNeeded(password string) error {
 	if m.secureStorage.Exists() {
@@ -204,30 +240,21 @@ func (m Model) unlockAndStorePassword(password string) error {
 		return fmt.Errorf("failed to store password in shared memory: %w", err)
 	}
 
-	// Store secure storage in shared memory
-	if err := m.sharedMemory.Set("secure_storage", m.secureStorage); err != nil {
-		return fmt.Errorf("failed to store secure storage in shared memory: %w", err)
-	}
-
-	// Initialize and store SQL storage client
-	if err := m.initializeStorageClient(); err != nil {
-		return fmt.Errorf("failed to initialize storage client: %w", err)
-	}
-
-	return nil
-}
-
-// initializeStorageClient creates and stores the SQL storage client.
-func (m Model) initializeStorageClient() error {
-	sqlStorage, err := storage.NewSQLiteStorage("")
+	// initialize storage client in shared memory
+	// skip adding storage client to shared memory if it returns not initialized error
+	// show error message to user if it returns other error
+	storageClient, err := m.tryLoadStorageClient()
+	logger.Info("Loading storage client: %v", storageClient)
 	if err != nil {
-		return fmt.Errorf("failed to create SQLite storage: %w", err)
+		logger.Error("Failed to load storage client: %v", err)
+		if !errors.HasCode(err, errors.ErrCodeStorageClientNotInitialized) {
+			return err
+		}
 	}
-
-	if err := m.sharedMemory.Set(config.StorageClientKey, sqlStorage); err != nil {
-		return fmt.Errorf("failed to store storage client: %w", err)
+	if err := m.sharedMemory.Set(config.StorageClientKey, storageClient); err != nil {
+		logger.Error("Failed to store storage client in shared memory: %v", err)
+		return err
 	}
-
 	return nil
 }
 

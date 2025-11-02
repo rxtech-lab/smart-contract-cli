@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 	"github.com/stretchr/testify/suite"
@@ -169,6 +170,16 @@ func (s *StoragePageTestSuite) TestSelectSQLiteFirstTime() {
 	s.Contains(output, "Storage Client Configuration", "Should return to main view")
 	s.Contains(output, testPath, "Should display the configured path")
 
+	// check secure storage
+	sqlitePath, err := s.secureStorage.Get(config.SecureStorageKeySqlitePathKey)
+	s.NoError(err, "Should get SQLite path from secure storage")
+	s.Equal(testPath, sqlitePath, "Should match the configured path")
+
+	// check active client
+	activeClient, err := s.secureStorage.Get(config.SecureStorageClientTypeKey)
+	s.NoError(err, "Should get active client from secure storage")
+	s.Equal(types.StorageClientSQLite, activeClient, "Should match the configured active client")
+
 	// Quit
 	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	testModel.WaitFinished(s.T(), teatest.WithFinalTimeout(time.Second))
@@ -218,6 +229,16 @@ func (s *StoragePageTestSuite) TestSelectPostgresFirstTime() {
 	output = s.getOutput(testModel)
 	s.Contains(output, "Storage Client Configuration", "Should return to main view")
 	s.Contains(output, "postgres://user:****@localhost:5432/db", "Should display masked URL")
+
+	// check secure storage
+	postgresURL, err := s.secureStorage.Get(config.SecureStorageKeyPostgresURLKey)
+	s.NoError(err, "Should get Postgres URL from secure storage")
+	s.Equal(testURL, postgresURL, "Should match the configured URL")
+
+	// check active client
+	activeClient, err := s.secureStorage.Get(config.SecureStorageClientTypeKey)
+	s.NoError(err, "Should get active client from secure storage")
+	s.Equal(types.StorageClientPostgres, activeClient, "Should match the configured active client")
 
 	// Quit
 	testModel.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
