@@ -38,3 +38,4 @@ dist
 smart-contract-cli
 routes_gen.go
 bin/
+mock_*.go

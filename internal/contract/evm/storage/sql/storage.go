@@ -3,7 +3,6 @@ package sql
 import (
 	"fmt"
 
-	"github.com/rxtech-lab/smart-contract-cli/internal/config"
 	models "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/models/evm"
 	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 )
@@ -44,11 +43,24 @@ type Storage interface {
 	CountConfigs() (count int64, err error)
 	UpdateConfig(id uint, config models.EVMConfig) (err error)
 	DeleteConfig(id uint) (err error)
+
+	// Wallet methods
+	CreateWallet(wallet models.EVMWallet) (id uint, err error)
+	ListWallets(page int64, pageSize int64) (wallets types.Pagination[models.EVMWallet], err error)
+	SearchWallets(query string) (wallets types.Pagination[models.EVMWallet], err error)
+	GetWalletByID(id uint) (wallet models.EVMWallet, err error)
+	GetWalletByAddress(address string) (wallet models.EVMWallet, err error)
+	GetWalletByAlias(alias string) (wallet models.EVMWallet, err error)
+	CountWallets() (count int64, err error)
+	UpdateWallet(id uint, wallet models.EVMWallet) (err error)
+	DeleteWallet(id uint) (err error)
+	WalletExistsByAddress(address string) (exists bool, err error)
+	WalletExistsByAlias(alias string) (exists bool, err error)
 }
 
-func GetStorage(storageType string, params ...any) (Storage, error) {
+func GetStorage(storageType types.StorageClient, params ...any) (Storage, error) {
 	switch storageType {
-	case config.StorageClientTypeSQLite:
+	case types.StorageClientSQLite:
 		if len(params) == 0 || params[0] == nil {
 			return nil, fmt.Errorf("sqlite path is required")
 		}

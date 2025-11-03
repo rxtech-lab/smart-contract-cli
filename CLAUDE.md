@@ -73,6 +73,10 @@ internal/
 │       └── transport/    # Blockchain communication
 │           ├── transport.go     # Transport interface
 │           └── http.go          # HttpTransport (JSON-RPC via go-ethereum)
+├── log/                 # Logging infrastructure
+│   ├── logger.go        # Logger with file rotation support
+│   ├── logger_test.go   # Comprehensive test suite
+│   └── USAGE.md         # Detailed usage guide
 └── view/                # TUI (Terminal User Interface) layer
     ├── types.go         # Router interface and Route definitions
     └── router.go        # Router implementation for Bubble Tea navigation
@@ -146,6 +150,10 @@ internal/
 
 ## View Layer (TUI Router)
 
+### Page implementation
+
+Never implement esc or ctrl+c to exit app or return app since they are handled by router.
+
 ### Router Architecture
 
 The view layer provides a navigation system for Bubble Tea TUI applications, centered around the Router pattern. The Router manages navigation between different views/screens while maintaining navigation history and supporting both path and query parameters.
@@ -180,6 +188,7 @@ CanGoBack() bool                                              // Check if back n
 **3. Parameter Support**
 
 - **Path Parameters**: Extract dynamic segments from URLs
+
   - Pattern: `/users/:id` matches `/users/123`
   - Pattern: `/posts/:postId/comments/:commentId` matches `/posts/42/comments/7`
   - Access via `GetParam(key string) string`
@@ -321,6 +330,7 @@ The component system (`internal/ui/component/`) provides a React/SwiftUI-like de
 ### Core Philosophy
 
 **Before (Imperative):**
+
 ```go
 func (m Model) View() string {
     var b strings.Builder
@@ -337,6 +347,7 @@ func (m Model) View() string {
 ```
 
 **After (Declarative):**
+
 ```go
 func (m Model) View() string {
     items := make([]ListItem, len(options))
@@ -362,6 +373,7 @@ func (m Model) View() string {
 ### Architecture
 
 **Component Interface** (`component.go`):
+
 ```go
 type Component interface {
     Render() string
@@ -388,6 +400,7 @@ T("Styled").
 ```
 
 **Preset Styles:**
+
 - `.Primary()` - Bold, primary color
 - `.Success()` - Green text
 - `.Error()` - Bold red text
@@ -397,6 +410,7 @@ T("Styled").
 - `.Secondary()` - Faint text
 
 **Modifiers:**
+
 - Style: `Bold()`, `Italic()`, `Underline()`, `Strikethrough()`, `Faint()`, `Blink()`
 - Color: `Foreground()`, `Background()`, `Color()`, `BgColor()`
 - Layout: `Width()`, `Height()`, `MaxWidth()`, `MaxHeight()`, `Align()`
@@ -406,6 +420,7 @@ T("Styled").
 #### 2. Layout Components (`layout.go`)
 
 **VStack** - Vertical stack (like SwiftUI):
+
 ```go
 VStackC(
     T("Line 1"),
@@ -421,6 +436,7 @@ NewVStack(
 ```
 
 **HStack** - Horizontal stack:
+
 ```go
 HStackC(
     T("Left"),
@@ -430,6 +446,7 @@ HStackC(
 ```
 
 **ZStack** - Overlay stack (layers components):
+
 ```go
 ZStackC(
     T("Background"),
@@ -438,12 +455,14 @@ ZStackC(
 ```
 
 **Spacer** - Flexible/fixed spacing:
+
 ```go
 SpacerV(2)  // Vertical spacer (2 empty lines)
 SpacerH(5)  // Horizontal spacer (5 spaces)
 ```
 
 **Divider** - Horizontal line:
+
 ```go
 DividerLine(40)  // 40-character divider
 NewDivider("─", 20).WithStyle(style)
@@ -452,6 +471,7 @@ NewDivider("─", 20).WithStyle(style)
 #### 3. List Components (`list.go`)
 
 **Selectable List:**
+
 ```go
 items := []ListItem{
     Item("Option 1", "opt1"),
@@ -466,6 +486,7 @@ NewList(items).
 ```
 
 **Numbered List:**
+
 ```go
 NewNumberedList(
     T("First item"),
@@ -475,6 +496,7 @@ NewNumberedList(
 ```
 
 **Bullet List:**
+
 ```go
 NewBulletList(
     T("Item 1"),
@@ -483,11 +505,13 @@ NewBulletList(
 ```
 
 **String List** (convenience):
+
 ```go
 StringList([]string{"A", "B", "C"}).Selected("B")
 ```
 
 **Custom Item Rendering:**
+
 ```go
 NewList(items).RenderItem(func(item ListItem, isSelected bool) Component {
     return HStackC(
@@ -500,6 +524,7 @@ NewList(items).RenderItem(func(item ListItem, isSelected bool) Component {
 #### 4. Container Components (`container.go`)
 
 **Box** - Container with borders and styling:
+
 ```go
 NewBox(T("Content")).
     RoundedBorder().
@@ -509,6 +534,7 @@ NewBox(T("Content")).
 ```
 
 **Border Presets:**
+
 - `.RoundedBorder()` - Rounded corners
 - `.NormalBorder()` - Standard box border
 - `.ThickBorder()` - Thick border
@@ -516,12 +542,14 @@ NewBox(T("Content")).
 - `.HiddenBorder()` - Invisible border (for spacing)
 
 **Convenience Containers:**
+
 ```go
 Card(content)   // Rounded border + padding
 Panel(content)  // Normal border + padding
 ```
 
 **Padding Container:**
+
 ```go
 NewPadding(content).
     All(2).           // Equal padding all sides
@@ -532,6 +560,7 @@ NewPadding(content).
 ```
 
 **Center Container:**
+
 ```go
 NewCenter(content, 80, 24)  // Center in 80x24 space
 ```
@@ -539,23 +568,27 @@ NewCenter(content, 80, 24)  // Center in 80x24 space
 #### 5. Conditional Rendering (`conditional.go`)
 
 **If/Else:**
+
 ```go
 IfC(condition, T("True"), T("False"))
 IfElse(isLoggedIn, T("Welcome!"), T("Login"))
 ```
 
 **If/Then (no else):**
+
 ```go
 IfThenC(showMessage, T("Message"))
 When(isAdmin, T("Admin Panel"))
 ```
 
 **Unless (inverse of IfThen):**
+
 ```go
 UnlessC(isHidden, T("Visible content"))
 ```
 
 **Switch Statement:**
+
 ```go
 SwitchC(
     Case(Match(status, "success"), T("✓ Success").Success()),
@@ -565,6 +598,7 @@ SwitchC(
 ```
 
 **Match Helpers:**
+
 ```go
 Match(value, target)              // Equality check
 MatchAny(value, "a", "b", "c")   // Multiple values
@@ -572,6 +606,7 @@ MatchRange(value, 1, 10)         // Range check (int/float)
 ```
 
 **Simple Helpers:**
+
 ```go
 Show(condition, component)       // Show if true
 Hide(condition, component)       // Hide if true
@@ -583,6 +618,7 @@ Toggle(state, onComp, offComp)   // Toggle between two
 #### Import Pattern
 
 Use dot import for cleaner syntax:
+
 ```go
 import (
     . "github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
@@ -690,6 +726,7 @@ VStackC(
 **Framework:** `testify/suite` (project standard)
 
 **Coverage:** 50+ comprehensive test cases covering:
+
 - All component types and their methods
 - Chainable modifiers
 - Layout composition
@@ -698,6 +735,7 @@ VStackC(
 - Style application
 
 **Running Tests:**
+
 ```bash
 go test ./internal/ui/component/ -v
 ```
@@ -707,6 +745,7 @@ go test ./internal/ui/component/ -v
 **Location:** `internal/ui/component/examples_test.go`
 
 Contains 10+ real-world examples demonstrating:
+
 - Basic text styling
 - Layout patterns (VStack, HStack, Card)
 - Interactive lists
@@ -815,6 +854,8 @@ The component system handles rendering; Bubble Tea handles state management and 
 ## Development Notes
 
 ** Always use test suite testing structure to write tests**
+
+**IMPORTANT: Do NOT test ctrl+c to exit the app unless explicitly requested by the user. Testing ctrl+c can interfere with the testing process and is unnecessary for standard functionality testing.**
 
 ### Adding New Transport Implementation
 
@@ -936,6 +977,7 @@ make generate-routes
 ```
 
 This command:
+
 1. Builds the `routegen` tool to `bin/routegen`
 2. Scans the `app/` directory
 3. Generates `app/routes_gen.go` with route definitions
@@ -1003,6 +1045,7 @@ go test ./tools/routergen/ -v
 ```
 
 The test suite includes 27+ test cases covering:
+
 - Route path conversion (static and dynamic)
 - Package alias generation
 - Directory scanning with various structures
@@ -1034,3 +1077,329 @@ bin/            # Compiled tools
 - Requires code generation step (added to Makefile)
 - Dynamic segments use `_param` convention instead of `[param]` (Go package naming limitation)
 - Generated file should not be manually edited (regenerate instead)
+
+## Logging System
+
+### Overview
+
+The logging system (`internal/log/`) provides structured logging with file rotation support, built on top of `zerolog` and `lumberjack`. It supports writing logs to console, file, or both simultaneously with automatic log rotation based on file size, age, and backup count.
+
+**Location:** `internal/log/`
+**Dependencies:**
+
+- `github.com/rs/zerolog` - Fast, structured logging
+- `gopkg.in/natefinch/lumberjack.v2` - Log rotation
+
+### Core Features
+
+1. **Multiple Output Modes**:
+
+   - Console only (default, backward compatible)
+   - File only (no console output)
+   - Both console and file (recommended for production)
+
+2. **Automatic Log Rotation**:
+
+   - Size-based rotation (default: 10 MB)
+   - Time-based retention (default: 30 days)
+   - Backup file management (default: 5 backups)
+   - Optional compression of rotated files (gzip)
+
+3. **Structured Logging**:
+   - JSON format for file logs (machine-parsable)
+   - Pretty console output with timestamps
+   - Multiple log levels: Debug, Info, Warn, Error, Fatal
+
+### Quick Start
+
+**Console Only (Backward Compatible):**
+
+```go
+logger := log.NewLogger()
+logger.Info("Application started")
+```
+
+**File and Console (Recommended):**
+
+```go
+config := log.DefaultConfig()
+logger, err := log.NewLoggerWithConfig(config)
+if err != nil {
+    panic(err)
+}
+defer logger.Close()
+
+logger.Info("Application started")
+logger.Error("Error: %v", err)
+```
+
+**File Only:**
+
+```go
+logger, err := log.NewFileLogger("./logs/app.log")
+if err != nil {
+    panic(err)
+}
+defer logger.Close()
+```
+
+### Configuration
+
+**Config Struct:**
+
+```go
+type Config struct {
+    LogFilePath   string  // Default: "./logs/app.log"
+    MaxSize       int     // MB, Default: 10
+    MaxBackups    int     // Default: 5
+    MaxAge        int     // Days, Default: 30
+    Compress      bool    // Default: true
+    ConsoleOutput bool    // Default: true
+}
+```
+
+**Default Configuration:**
+
+```go
+config := log.DefaultConfig()
+// Returns:
+// LogFilePath: "./logs/app.log"
+// MaxSize: 10 MB
+// MaxBackups: 5
+// MaxAge: 30 days
+// Compress: true
+// ConsoleOutput: true
+```
+
+**Custom Configuration:**
+
+```go
+config := log.Config{
+    LogFilePath:   "./logs/myapp.log",
+    MaxSize:       20,    // 20 MB before rotation
+    MaxBackups:    10,    // Keep 10 old files
+    MaxAge:        60,    // Keep for 60 days
+    Compress:      true,  // Gzip old files
+    ConsoleOutput: false, // File only
+}
+
+logger, err := log.NewLoggerWithConfig(config)
+```
+
+### Log Levels
+
+```go
+logger.Debug("Debug info: %v", data)    // Development/troubleshooting
+logger.Info("User %s logged in", user)  // Normal flow
+logger.Warn("Disk space low: %d%%", pct) // Warnings
+logger.Error("Failed: %v", err)         // Errors
+logger.Fatal("Critical: %v", err)       // Fatal (exits app)
+```
+
+### Usage in Bubble Tea Applications
+
+**Step 1: Add logger to Model**
+
+```go
+type Model struct {
+    router view.Router
+    logger *log.Logger  // Add logger field
+    // ... other fields
+}
+```
+
+**Step 2: Initialize in NewPage**
+
+```go
+func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
+    // Create logger
+    logger, err := log.NewLoggerWithConfig(log.DefaultConfig())
+    if err != nil {
+        // Fallback to console-only
+        logger = log.NewLogger()
+    }
+
+    model := Model{
+        router: router,
+        logger: logger,
+    }
+
+    logger.Info("Page initialized")
+    return model
+}
+```
+
+**Step 3: Log throughout application**
+
+```go
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    m.logger.Debug("Update called with: %T", msg)
+
+    keyMsg, ok := msg.(tea.KeyMsg)
+    if !ok {
+        return m, nil
+    }
+
+    m.logger.Info("Key pressed: %s", keyMsg.String())
+
+    switch keyMsg.String() {
+    case "enter":
+        m.logger.Info("Navigating to: %s", m.selectedOption.Route)
+        err := m.router.NavigateTo(m.selectedOption.Route, nil)
+        if err != nil {
+            m.logger.Error("Navigation failed: %v", err)
+        }
+    case "q", "ctrl+c":
+        m.logger.Info("User quit")
+        m.logger.Close() // Flush logs
+        return m, tea.Quit
+    }
+
+    return m, nil
+}
+```
+
+**Step 4: Clean up (in main.go)**
+
+```go
+func main() {
+    logger, err := log.NewLoggerWithConfig(log.DefaultConfig())
+    if err != nil {
+        panic(err)
+    }
+    defer logger.Close()  // Ensure flush on exit
+
+    // ... create and run Bubble Tea program
+}
+```
+
+### Log Rotation
+
+Logs rotate automatically based on configuration:
+
+**Rotation Triggers:**
+
+- File size exceeds `MaxSize` (MB)
+- File age exceeds `MaxAge` (days)
+- Number of backups exceeds `MaxBackups`
+
+**File Structure After Rotation:**
+
+```
+logs/
+├── app.log           # Current log file
+├── app.log.1         # Most recent backup
+├── app.log.2.gz      # Older, compressed
+├── app.log.3.gz
+└── app.log.4.gz
+```
+
+**Manual Rotation:**
+
+```go
+err := logger.Rotate()
+if err != nil {
+    logger.Error("Rotation failed: %v", err)
+}
+```
+
+### Testing
+
+**Location:** `internal/log/logger_test.go`
+
+**Framework:** `testify/suite` (project standard)
+
+**Coverage:** 13 comprehensive test cases:
+
+- Logger initialization (console, file, both)
+- Configuration handling
+- File writing and reading
+- Log levels (Debug, Info, Warn, Error)
+- Log rotation
+- Directory creation
+- Multiple concurrent loggers
+- Message formatting
+
+**Running Tests:**
+
+```bash
+go test ./internal/log/ -v
+```
+
+### Best Practices
+
+1. **Always close file loggers**:
+
+   ```go
+   defer logger.Close()
+   ```
+
+2. **Use appropriate log levels**:
+
+   - Debug: Development only
+   - Info: Normal application flow
+   - Warn: Unexpected but handled
+   - Error: Errors requiring attention
+   - Fatal: Unrecoverable errors
+
+3. **Include context in messages**:
+
+   ```go
+   logger.Info("User %s logged in from %s", username, ipAddress)
+   logger.Error("Query failed: query=%s, error=%v", query, err)
+   ```
+
+4. **Don't log sensitive data**:
+
+   ```go
+   // BAD
+   logger.Info("Password: %s", password)
+
+   // GOOD
+   logger.Info("User authenticated successfully")
+   ```
+
+5. **Use file logging in production**:
+   ```go
+   config := log.DefaultConfig()
+   config.ConsoleOutput = false  // File only
+   logger, _ := log.NewLoggerWithConfig(config)
+   ```
+
+### Log File Location
+
+**Default:** `./logs/app.log`
+
+Logs are written relative to the application's working directory. The directory is created automatically if it doesn't exist (permissions: 0755).
+
+**Custom Location:**
+
+```go
+config := log.DefaultConfig()
+config.LogFilePath = "/var/log/myapp/app.log"
+```
+
+### Performance Considerations
+
+1. **Console output**: Adds overhead; disable in production
+2. **Compression**: CPU overhead but saves disk space
+3. **Log level**: Use Info/Warn/Error in production (not Debug)
+4. **Rotation frequency**: Larger `MaxSize` = less frequent rotation
+
+### Integration Example
+
+See `internal/log/USAGE.md` for detailed examples including:
+
+- Full Bubble Tea integration
+- Error handling patterns
+- Production configuration
+- Troubleshooting guide
+
+### Directory Structure
+
+```
+internal/log/
+├── logger.go         # Core logger implementation
+├── logger_test.go    # Test suite (13 tests)
+└── USAGE.md          # Comprehensive usage guide
+```

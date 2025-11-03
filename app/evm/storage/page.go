@@ -7,10 +7,16 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
+	"github.com/rxtech-lab/smart-contract-cli/internal/log"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 	"github.com/rxtech-lab/smart-contract-cli/internal/ui/component"
+	"github.com/rxtech-lab/smart-contract-cli/internal/utils"
 	"github.com/rxtech-lab/smart-contract-cli/internal/view"
 )
+
+var logger, _ = log.NewFileLogger("./logs/evm/storage/page.log")
 
 // InputMode represents the current input mode of the page.
 type InputMode int
@@ -25,19 +31,19 @@ const (
 // StorageOption represents a storage client option.
 type StorageOption struct {
 	Label       string
-	Value       string
+	Value       types.StorageClient
 	Description string
 }
 
 var storageOptions = []StorageOption{
 	{
 		Label:       "SQLite",
-		Value:       config.StorageClientTypeSQLite,
+		Value:       types.StorageClientSQLite,
 		Description: "Local file-based database",
 	},
 	{
 		Label:       "Postgres",
-		Value:       config.StorageClientTypePostgres,
+		Value:       types.StorageClientPostgres,
 		Description: "PostgreSQL database server",
 	},
 }
@@ -59,9 +65,9 @@ type Model struct {
 	confirmIndex   int
 
 	// Storage state
-	activeClient string // "sqlite" or "postgres" (currently in use)
-	sqlitePath   string // Loaded from secure storage
-	postgresURL  string // Loaded from secure storage
+	activeClient types.StorageClient // "sqlite" or "postgres" (currently in use)
+	sqlitePath   string              // Loaded from secure storage
+	postgresURL  string              // Loaded from secure storage
 
 	errorMessage string
 }
@@ -70,35 +76,23 @@ type Model struct {
 
 // NewPage creates a new storage client page.
 func NewPage(router view.Router, sharedMemory storage.SharedMemory) view.View {
-	// Get password from shared memory
-	passwordRaw, err := sharedMemory.Get(config.SecureStoragePasswordKey)
-	if err != nil {
-		return Model{
-			router:       router,
-			sharedMemory: sharedMemory,
-			options:      storageOptions,
-			errorMessage: "Failed to get password from shared memory",
-		}
-	}
-
-	password, ok := passwordRaw.(string)
-	if !ok {
-		return Model{
-			router:       router,
-			sharedMemory: sharedMemory,
-			options:      storageOptions,
-			errorMessage: "Password in shared memory is not a string",
-		}
-	}
-
-	// Initialize secure storage
-	secureStorage, err := storage.NewSecureStorageWithEncryption(password, "")
+	secureStorage, password, err := utils.GetSecureStorageFromSharedMemory(sharedMemory)
 	if err != nil {
 		return Model{
 			router:       router,
 			sharedMemory: sharedMemory,
 			options:      storageOptions,
 			errorMessage: fmt.Sprintf("Failed to initialize secure storage: %v", err),
+		}
+	}
+
+	// Test/verify the password
+	if err := secureStorage.TestPassword(password); err != nil {
+		return Model{
+			router:       router,
+			sharedMemory: sharedMemory,
+			options:      storageOptions,
+			errorMessage: fmt.Sprintf("Failed to unlock secure storage: %v", err),
 		}
 	}
 
@@ -137,17 +131,17 @@ func (m *Model) loadFromSecureStorage() {
 	}
 
 	// Load active client type
-	if clientType, err := m.secureStorage.Get(config.StorageKeyTypeKey); err == nil {
-		m.activeClient = clientType
+	if clientType, err := m.secureStorage.Get(config.SecureStorageClientTypeKey); err == nil {
+		m.activeClient = types.StorageClient(clientType)
 	}
 
 	// Load SQLite path
-	if sqlitePath, err := m.secureStorage.Get(config.StorageKeySqlitePathKey); err == nil {
+	if sqlitePath, err := m.secureStorage.Get(config.SecureStorageKeySqlitePathKey); err == nil {
 		m.sqlitePath = sqlitePath
 	}
 
 	// Load Postgres URL
-	if postgresURL, err := m.secureStorage.Get(config.StorageKeyPostgresURLKey); err == nil {
+	if postgresURL, err := m.secureStorage.Get(config.SecureStorageKeyPostgresURLKey); err == nil {
 		m.postgresURL = postgresURL
 	}
 }
@@ -166,11 +160,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	}
-
-	// Handle quit (Ctrl+C only, 'q' navigates back)
-	if keyMsg.Type == tea.KeyCtrlC {
-		return m, tea.Quit
 	}
 
 	// Handle input based on mode
@@ -237,12 +226,12 @@ func (m Model) handleInputSubmit() Model {
 }
 
 func (m Model) saveSQLiteConfiguration(value string) Model {
-	if err := m.saveStorageClient("sqlite", value); err != nil {
+	if err := m.saveStorageClient(types.StorageClientSQLite, value); err != nil {
 		m.errorMessage = fmt.Sprintf("Failed to save: %v", err)
 		return m
 	}
 	m.sqlitePath = value
-	m.activeClient = "sqlite"
+	m.activeClient = types.StorageClientSQLite
 	m.inputMode = InputModeNone
 	m.textInput.SetValue("")
 	m.errorMessage = ""
@@ -250,12 +239,12 @@ func (m Model) saveSQLiteConfiguration(value string) Model {
 }
 
 func (m Model) savePostgresConfiguration(value string) Model {
-	if err := m.saveStorageClient("postgres", value); err != nil {
+	if err := m.saveStorageClient(types.StorageClientPostgres, value); err != nil {
 		m.errorMessage = fmt.Sprintf("Failed to save: %v", err)
 		return m
 	}
 	m.postgresURL = value
-	m.activeClient = "postgres"
+	m.activeClient = types.StorageClientPostgres
 	m.inputMode = InputModeNone
 	m.textInput.SetValue("")
 	m.errorMessage = ""
@@ -301,7 +290,7 @@ func (m Model) handleConfirmationSelection() Model {
 	return m
 }
 
-func (m Model) useExistingConfiguration(clientType string) Model {
+func (m Model) useExistingConfiguration(clientType types.StorageClient) Model {
 	if err := m.switchActiveClient(clientType); err != nil {
 		m.errorMessage = fmt.Sprintf("Failed to switch: %v", err)
 	} else {
@@ -312,13 +301,13 @@ func (m Model) useExistingConfiguration(clientType string) Model {
 	return m
 }
 
-func (m Model) changeConfiguration(clientType string) Model {
+func (m Model) changeConfiguration(clientType types.StorageClient) Model {
 	switch clientType {
-	case "sqlite":
+	case types.StorageClientSQLite:
 		m.inputMode = InputModeSqlitePath
 		m.textInput.SetValue(m.sqlitePath)
 		m.textInput.Placeholder = "Enter SQLite file path"
-	case "postgres":
+	case types.StorageClientPostgres:
 		m.inputMode = InputModePostgresURL
 		m.textInput.SetValue(m.postgresURL)
 		m.textInput.Placeholder = "Enter PostgreSQL connection URL"
@@ -327,7 +316,7 @@ func (m Model) changeConfiguration(clientType string) Model {
 	return m
 }
 
-func (m Model) removeConfiguration(clientType string) Model {
+func (m Model) removeConfiguration(clientType types.StorageClient) Model {
 	if err := m.removeStorageClient(clientType); err != nil {
 		m.errorMessage = fmt.Sprintf("Failed to remove: %v", err)
 		m.inputMode = InputModeNone
@@ -336,9 +325,9 @@ func (m Model) removeConfiguration(clientType string) Model {
 	}
 
 	switch clientType {
-	case "sqlite":
+	case types.StorageClientSQLite:
 		m.sqlitePath = ""
-	case "postgres":
+	case types.StorageClientPostgres:
 		m.postgresURL = ""
 	}
 
@@ -346,7 +335,7 @@ func (m Model) removeConfiguration(clientType string) Model {
 	if m.activeClient == clientType {
 		m.activeClient = ""
 		if m.secureStorage != nil {
-			if err := m.secureStorage.Delete(config.StorageKeyTypeKey); err != nil {
+			if err := m.secureStorage.Delete(config.SecureStorageClientTypeKey); err != nil {
 				m.errorMessage = fmt.Sprintf("Failed to clear active client: %v", err)
 			}
 		}
@@ -370,9 +359,9 @@ func (m *Model) handleClientSelection() {
 	// Check if configuration exists
 	var hasConfig bool
 	switch selectedOption.Value {
-	case "sqlite":
+	case types.StorageClientSQLite:
 		hasConfig = m.sqlitePath != ""
-	case "postgres":
+	case types.StorageClientPostgres:
 		hasConfig = m.postgresURL != ""
 	}
 
@@ -383,11 +372,11 @@ func (m *Model) handleClientSelection() {
 	} else {
 		// Show input dialog
 		switch selectedOption.Value {
-		case "sqlite":
+		case types.StorageClientSQLite:
 			m.inputMode = InputModeSqlitePath
 			m.textInput.SetValue("")
 			m.textInput.Placeholder = "Enter SQLite file path (e.g., ~/.smart-contract-cli/data.db)"
-		case "postgres":
+		case types.StorageClientPostgres:
 			m.inputMode = InputModePostgresURL
 			m.textInput.SetValue("")
 			m.textInput.Placeholder = "Enter PostgreSQL URL (e.g., postgres://user:pass@localhost:5432/db)"
@@ -396,7 +385,8 @@ func (m *Model) handleClientSelection() {
 }
 
 // saveStorageClient saves the storage client configuration to secure storage.
-func (m *Model) saveStorageClient(clientType string, value string) error {
+func (m *Model) saveStorageClient(clientType types.StorageClient, value string) error {
+	logger.Info("Saving storage client configuration: %v, %v", clientType, value)
 	if m.secureStorage == nil {
 		return fmt.Errorf("secure storage not initialized")
 	}
@@ -404,10 +394,10 @@ func (m *Model) saveStorageClient(clientType string, value string) error {
 	// Save the value
 	var key string
 	switch clientType {
-	case "sqlite":
-		key = config.StorageKeySqlitePathKey
-	case "postgres":
-		key = config.StorageKeyPostgresURLKey
+	case types.StorageClientSQLite:
+		key = config.SecureStorageKeySqlitePathKey
+	case types.StorageClientPostgres:
+		key = config.SecureStorageKeyPostgresURLKey
 	default:
 		return fmt.Errorf("invalid client type: %s", clientType)
 	}
@@ -417,25 +407,40 @@ func (m *Model) saveStorageClient(clientType string, value string) error {
 	}
 
 	// Save as active client
-	if err := m.secureStorage.Set(config.StorageKeyTypeKey, clientType); err != nil {
+	if err := m.secureStorage.Set(config.SecureStorageClientTypeKey, string(clientType)); err != nil {
 		return fmt.Errorf("failed to set active storage client: %w", err)
 	}
+
+	// Create and store the storage client instance in shared memory
+	// Note: If the storage type is not yet implemented (e.g., Postgres),
+	// we still save the configuration but log a warning
+	storageClient, err := sql.GetStorage(clientType, value)
+	if err != nil {
+		logger.Warn("Failed to create storage client (may not be implemented yet): %v", err)
+		// Don't return error - configuration is still saved, just client not instantiated
+		return nil
+	}
+
+	if err := m.sharedMemory.Set(config.StorageClientKey, storageClient); err != nil {
+		return fmt.Errorf("failed to store storage client in shared memory: %w", err)
+	}
+
 	return nil
 }
 
 // switchActiveClient switches the active storage client.
-func (m *Model) switchActiveClient(clientType string) error {
+func (m *Model) switchActiveClient(clientType types.StorageClient) error {
 	if m.secureStorage == nil {
 		return fmt.Errorf("secure storage not initialized")
 	}
-	if err := m.secureStorage.Set(config.StorageKeyTypeKey, clientType); err != nil {
+	if err := m.secureStorage.Set(config.SecureStorageClientTypeKey, string(clientType)); err != nil {
 		return fmt.Errorf("failed to switch active storage client: %w", err)
 	}
 	return nil
 }
 
 // removeStorageClient removes a storage client configuration.
-func (m *Model) removeStorageClient(clientType string) error {
+func (m *Model) removeStorageClient(clientType types.StorageClient) error {
 	if m.secureStorage == nil {
 		return fmt.Errorf("secure storage not initialized")
 	}
@@ -443,10 +448,10 @@ func (m *Model) removeStorageClient(clientType string) error {
 	// Determine which key to delete
 	var key string
 	switch clientType {
-	case "sqlite":
-		key = config.StorageKeySqlitePathKey
-	case "postgres":
-		key = config.StorageKeyPostgresURLKey
+	case types.StorageClientSQLite:
+		key = config.SecureStorageKeySqlitePathKey
+	case types.StorageClientPostgres:
+		key = config.SecureStorageKeyPostgresURLKey
 	default:
 		return fmt.Errorf("invalid client type: %s", clientType)
 	}
@@ -538,9 +543,9 @@ func (m Model) renderConfirmationView() string {
 	selectedOption := m.options[m.selectedIndex]
 	currentValue := ""
 	switch selectedOption.Value {
-	case "sqlite":
+	case types.StorageClientSQLite:
 		currentValue = m.sqlitePath
-	case "postgres":
+	case types.StorageClientPostgres:
 		currentValue = maskPostgresURL(m.postgresURL)
 	}
 
@@ -573,19 +578,19 @@ func (m Model) renderNormalView() string {
 		desc := opt.Description
 
 		// Add stored path/URL to description if available
-		if opt.Value == "sqlite" && m.sqlitePath != "" {
+		if opt.Value == types.StorageClientSQLite && m.sqlitePath != "" {
 			desc = desc + "\nPath: " + m.sqlitePath
-		} else if opt.Value == "postgres" && m.postgresURL != "" {
+		} else if opt.Value == types.StorageClientPostgres && m.postgresURL != "" {
 			desc = desc + "\nURL: " + maskPostgresURL(m.postgresURL)
 		}
 
-		items[idx] = component.Item(opt.Label, opt.Value, desc)
+		items[idx] = component.Item(opt.Label, string(opt.Value), desc)
 	}
 
 	// Highlight the active client
 	highlightedValues := []string{}
 	if m.activeClient != "" {
-		highlightedValues = append(highlightedValues, m.activeClient)
+		highlightedValues = append(highlightedValues, string(m.activeClient))
 	}
 
 	selectedValue := m.options[m.selectedIndex].Value
@@ -596,7 +601,7 @@ func (m Model) renderNormalView() string {
 		component.T("Select your preferred storage client:").Muted(),
 		component.SpacerV(1),
 		component.NewList(items).
-			Selected(selectedValue).
+			Selected(string(selectedValue)).
 			Highlighted(highlightedValues...).
 			ShowDescription(true).
 			DescriptionSpacing(0).

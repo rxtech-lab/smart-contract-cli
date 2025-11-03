@@ -17,6 +17,7 @@ type SQLiteStorage struct {
 	endpointQueries *queries.EndpointQueries
 	contractQueries *queries.ContractQueries
 	configQueries   *queries.ConfigQueries
+	walletQueries   *queries.WalletQueries
 }
 
 // ABI Methods
@@ -290,6 +291,110 @@ func (s *SQLiteStorage) UpdateConfig(configID uint, config models.EVMConfig) (er
 	return nil
 }
 
+// Wallet Methods
+
+// CountWallets implements Storage.
+func (s *SQLiteStorage) CountWallets() (count int64, err error) {
+	count, err = s.walletQueries.Count()
+	if err != nil {
+		return 0, fmt.Errorf("failed to count wallets: %w", err)
+	}
+	return count, nil
+}
+
+// CreateWallet implements Storage.
+func (s *SQLiteStorage) CreateWallet(wallet models.EVMWallet) (id uint, err error) {
+	if err := s.walletQueries.Create(&wallet); err != nil {
+		return 0, fmt.Errorf("failed to create wallet: %w", err)
+	}
+	return wallet.ID, nil
+}
+
+// DeleteWallet implements Storage.
+func (s *SQLiteStorage) DeleteWallet(id uint) (err error) {
+	if err := s.walletQueries.Delete(id); err != nil {
+		return fmt.Errorf("failed to delete wallet: %w", err)
+	}
+	return nil
+}
+
+// GetWalletByID implements Storage.
+func (s *SQLiteStorage) GetWalletByID(id uint) (wallet models.EVMWallet, err error) {
+	result, err := s.walletQueries.GetByID(id)
+	if err != nil {
+		return models.EVMWallet{}, fmt.Errorf("failed to get wallet by ID: %w", err)
+	}
+	return *result, nil
+}
+
+// GetWalletByAddress implements Storage.
+func (s *SQLiteStorage) GetWalletByAddress(address string) (wallet models.EVMWallet, err error) {
+	result, err := s.walletQueries.GetByAddress(address)
+	if err != nil {
+		return models.EVMWallet{}, fmt.Errorf("failed to get wallet by address: %w", err)
+	}
+	return *result, nil
+}
+
+// GetWalletByAlias implements Storage.
+func (s *SQLiteStorage) GetWalletByAlias(alias string) (wallet models.EVMWallet, err error) {
+	result, err := s.walletQueries.GetByAlias(alias)
+	if err != nil {
+		return models.EVMWallet{}, fmt.Errorf("failed to get wallet by alias: %w", err)
+	}
+	return *result, nil
+}
+
+// ListWallets implements Storage.
+func (s *SQLiteStorage) ListWallets(page int64, pageSize int64) (wallets types.Pagination[models.EVMWallet], err error) {
+	result, err := s.walletQueries.List(page, pageSize)
+	if err != nil {
+		return types.Pagination[models.EVMWallet]{}, fmt.Errorf("failed to list wallets: %w", err)
+	}
+	return *result, nil
+}
+
+// SearchWallets implements Storage.
+func (s *SQLiteStorage) SearchWallets(query string) (wallets types.Pagination[models.EVMWallet], err error) {
+	result, err := s.walletQueries.Search(query)
+	if err != nil {
+		return types.Pagination[models.EVMWallet]{}, fmt.Errorf("failed to search wallets: %w", err)
+	}
+	return *result, nil
+}
+
+// UpdateWallet implements Storage.
+func (s *SQLiteStorage) UpdateWallet(walletID uint, wallet models.EVMWallet) (err error) {
+	updates := map[string]any{
+		"alias":            wallet.Alias,
+		"address":          wallet.Address,
+		"derivation_path":  wallet.DerivationPath,
+		"is_from_mnemonic": wallet.IsFromMnemonic,
+	}
+	if err := s.walletQueries.Update(walletID, updates); err != nil {
+		return fmt.Errorf("failed to update wallet: %w", err)
+	}
+	return nil
+}
+
+// WalletExistsByAddress implements Storage.
+func (s *SQLiteStorage) WalletExistsByAddress(address string) (exists bool, err error) {
+	exists, err = s.walletQueries.ExistsByAddress(address)
+	if err != nil {
+		return false, fmt.Errorf("failed to check wallet existence by address: %w", err)
+	}
+	return exists, nil
+}
+
+// WalletExistsByAlias implements Storage.
+func (s *SQLiteStorage) WalletExistsByAlias(alias string) (exists bool, err error) {
+	exists, err = s.walletQueries.ExistsByAlias(alias)
+	if err != nil {
+		return false, fmt.Errorf("failed to check wallet existence by alias: %w", err)
+	}
+	return exists, nil
+}
+
 // NewSQLiteDB creates a new SQLite database connection.
 // If dbPath is empty, it defaults to $HOME/smart-contract-cli.db.
 func NewSQLiteDB(dbPath string) (Storage, error) {
@@ -320,6 +425,7 @@ func NewSQLiteDB(dbPath string) (Storage, error) {
 		&models.EVMEndpoint{},
 		&models.EVMContract{},
 		&models.EVMConfig{},
+		&models.EVMWallet{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database schema: %w", err)
 	}
@@ -330,5 +436,6 @@ func NewSQLiteDB(dbPath string) (Storage, error) {
 		endpointQueries: queries.NewEndpointQueries(database),
 		contractQueries: queries.NewContractQueries(database),
 		configQueries:   queries.NewConfigQueries(database),
+		walletQueries:   queries.NewWalletQueries(database),
 	}, nil
 }

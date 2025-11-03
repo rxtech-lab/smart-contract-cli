@@ -116,3 +116,20 @@ func NewDatabaseError(code ErrorCode, message string) *CustomError {
 func WrapDatabaseError(err error, code ErrorCode, message string) *CustomError {
 	return Wrap(err, code, message)
 }
+
+// Storage Domain Error Constructors
+
+// NewStorageError creates a new storage-related error.
+func NewStorageError(code ErrorCode, message string) *CustomError {
+	return New(code, message)
+}
+
+// WrapStorageError wraps an error with a storage error code.
+func WrapStorageError(err error, code ErrorCode, message string) *CustomError {
+	return Wrap(err, code, message)
+}
+
+// NewStorageClientNotInitializedError creates a new storage client not initialized error.
+func NewStorageClientNotInitializedError(message string) *CustomError {
+	return NewStorageError(ErrCodeStorageClientNotInitialized, message)
+}

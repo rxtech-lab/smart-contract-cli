@@ -1,9 +1,7 @@
 package config
 
 const (
-	SecureStoragePasswordKey = "secure_storage_password"
-	StorageKeyTypeKey        = "storage_client_type"
-	StorageKeySqlitePathKey  = "storage_client_sqlite_path"
-	StorageKeyPostgresURLKey = "storage_client_postgres_url"
-	StorageClientKey         = "storage_client"
+	SelectedWalletIDKey = "selected_wallet_id"
+	// StorageClientKey is the key for the storage client in shared memory, it is a sql.Storage instance.
+	StorageClientKey = "storage_client"
 )

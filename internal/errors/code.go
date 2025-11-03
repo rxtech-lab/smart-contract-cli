@@ -45,6 +45,10 @@ const (
 	ErrCodeInvalidPageNumber       ErrorCode = "INVALID_PAGE_NUMBER"
 	ErrCodeInvalidPageSize         ErrorCode = "INVALID_PAGE_SIZE"
 
+	// Storage Domain Error Codes.
+	ErrCodeInvalidStorageClientType    ErrorCode = "INVALID_STORAGE_CLIENT_TYPE"
+	ErrCodeStorageClientNotInitialized ErrorCode = "STORAGE_CLIENT_NOT_INITIALIZED"
+
 	// General Error Codes.
 	ErrCodeUnknown ErrorCode = "UNKNOWN"
 )
