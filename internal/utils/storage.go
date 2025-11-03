@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rxtech-lab/smart-contract-cli/internal/config"
+	"github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/sql"
 	"github.com/rxtech-lab/smart-contract-cli/internal/storage"
 )
 
@@ -29,4 +30,17 @@ func GetSecureStorageFromSharedMemory(sharedMemory storage.SharedMemory) (storag
 	}
 
 	return secureStorage, password, nil
+}
+
+// GetStorageClientFromSharedMemory gets the storage client from the shared memory.
+func GetStorageClientFromSharedMemory(sharedMemory storage.SharedMemory) (sql.Storage, error) {
+	storageClient, err := sharedMemory.Get(config.StorageClientKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage client from shared memory: %w", err)
+	}
+	sqlStorage, isValidStorage := storageClient.(sql.Storage)
+	if !isValidStorage {
+		return nil, fmt.Errorf("invalid storage client type")
+	}
+	return sqlStorage, nil
 }

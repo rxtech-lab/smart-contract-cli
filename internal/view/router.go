@@ -58,6 +58,12 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// handle esc key
 	if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "esc" {
 		r.Back()
+		// After going back, check if there's a pending command from the new page
+		if r.pendingCmd != nil {
+			pendingCmd := r.pendingCmd
+			r.pendingCmd = nil
+			return r, pendingCmd
+		}
 		return r, nil
 	}
 
@@ -65,20 +71,15 @@ func (r *RouterImplementation) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return r, nil
 	}
 
-	// Track if navigation occurred during update
-	navigationOccurred := false
-
 	// Store a reference to check if navigation changed it
 	oldStackSize := len(r.navigationStack)
 
 	updatedModel, cmd := r.currentComponent.Update(msg)
 
 	// Check if navigation occurred (stack size changed or pendingCmd set)
-	if len(r.navigationStack) != oldStackSize || r.pendingCmd != nil {
-		navigationOccurred = true
-	}
+	navigationOccurred := len(r.navigationStack) != oldStackSize || r.pendingCmd != nil
 
-	// If pending command exists, return it immediately
+	// If pending command exists (from navigation), return it immediately
 	if r.pendingCmd != nil {
 		pendingCmd := r.pendingCmd
 		r.pendingCmd = nil

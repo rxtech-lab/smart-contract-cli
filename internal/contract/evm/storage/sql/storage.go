@@ -36,13 +36,11 @@ type Storage interface {
 	DeleteContract(id uint) (err error)
 
 	// Config methods
-	CreateConfig(config models.EVMConfig) (id uint, err error)
-	ListConfigs(page int64, pageSize int64) (configs types.Pagination[models.EVMConfig], err error)
-	SearchConfigs(query string) (configs types.Pagination[models.EVMConfig], err error)
+	CreateConfig() (err error)
+	GetCurrentConfig() (config models.EVMConfig, err error)
 	GetConfigByID(id uint) (config models.EVMConfig, err error)
-	CountConfigs() (count int64, err error)
-	UpdateConfig(id uint, config models.EVMConfig) (err error)
-	DeleteConfig(id uint) (err error)
+	UpdateConfig(config models.EVMConfig) (err error)
+	DeleteConfig() (err error)
 
 	// Wallet methods
 	CreateWallet(wallet models.EVMWallet) (id uint, err error)

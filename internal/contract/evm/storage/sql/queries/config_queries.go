@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	models "github.com/rxtech-lab/smart-contract-cli/internal/contract/evm/storage/models/evm"
-	"github.com/rxtech-lab/smart-contract-cli/internal/contract/types"
 	customerrors "github.com/rxtech-lab/smart-contract-cli/internal/errors"
 	"gorm.io/gorm"
 )
@@ -19,44 +18,19 @@ func NewConfigQueries(db *gorm.DB) *ConfigQueries {
 	return &ConfigQueries{db: db}
 }
 
-// List retrieves a paginated list of configs with preloaded relationships.
-func (q *ConfigQueries) List(page int64, pageSize int64) (*types.Pagination[models.EVMConfig], error) {
-	if page < 1 {
-		return nil, customerrors.NewDatabaseError(customerrors.ErrCodeInvalidPageNumber, "page number must be greater than 0")
-	}
-	if pageSize < 1 {
-		return nil, customerrors.NewDatabaseError(customerrors.ErrCodeInvalidPageSize, "page size must be greater than 0")
-	}
-
-	var items []models.EVMConfig
-	var totalItems int64
-
-	// Count total items
-	if err := q.db.Model(&models.EVMConfig{}).Count(&totalItems).Error; err != nil {
-		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count configs")
-	}
-
-	// Calculate total pages
-	totalPages := (totalItems + pageSize - 1) / pageSize
-
-	// Retrieve paginated items with preloaded relationships
-	offset := (page - 1) * pageSize
+func (q *ConfigQueries) GetCurrent() (*models.EVMConfig, error) {
+	var config models.EVMConfig
 	if err := q.db.Preload("Endpoint").
 		Preload("SelectedEVMContract").
 		Preload("SelectedEVMAbi").
-		Offset(int(offset)).Limit(int(pageSize)).
-		Order("created_at DESC").
-		Find(&items).Error; err != nil {
-		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to list configs")
+		Preload("SelectedWallet").
+		First(&config).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeRecordNotFound, "no config found")
+		}
+		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to get current config")
 	}
-
-	return &types.Pagination[models.EVMConfig]{
-		Items:       items,
-		TotalPages:  totalPages,
-		CurrentPage: page,
-		PageSize:    pageSize,
-		TotalItems:  totalItems,
-	}, nil
+	return &config, nil
 }
 
 // GetByID retrieves a config by its ID with preloaded relationships.
@@ -74,17 +48,47 @@ func (q *ConfigQueries) GetByID(id uint) (*models.EVMConfig, error) {
 	return &config, nil
 }
 
-// Create creates a new config.
-func (q *ConfigQueries) Create(config *models.EVMConfig) error {
+// Create creates a new empty config if one doesn't exist, or skips if it does.
+func (q *ConfigQueries) Create() error {
+	// Check if config already exists
+	var count int64
+	if err := q.db.Model(&models.EVMConfig{}).Count(&count).Error; err != nil {
+		return customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to check config existence")
+	}
+
+	// If config exists, skip creation
+	if count > 0 {
+		return nil
+	}
+
+	// Create empty config
+	config := &models.EVMConfig{}
 	if err := q.db.Create(config).Error; err != nil {
 		return customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to create config")
 	}
 	return nil
 }
 
-// Update updates a config by ID with the provided updates.
-func (q *ConfigQueries) Update(id uint, updates map[string]interface{}) error {
-	result := q.db.Model(&models.EVMConfig{}).Where("id = ?", id).Updates(updates)
+// Update updates the current config with the provided config object.
+func (q *ConfigQueries) Update(config *models.EVMConfig) error {
+	// Get current config first
+	currentConfig, err := q.GetCurrent()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return customerrors.NewDatabaseError(customerrors.ErrCodeRecordNotFound, "no config found to update")
+		}
+		return customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to get current config")
+	}
+
+	// Update current config with provided values
+	updates := map[string]any{
+		"endpoint_id":              config.EndpointId,
+		"selected_evm_contract_id": config.SelectedEVMContractId,
+		"selected_evm_abi_id":      config.SelectedEVMAbiId,
+		"selected_wallet_id":       config.SelectedWalletID,
+	}
+
+	result := q.db.Model(&models.EVMConfig{}).Where("id = ?", currentConfig.ID).Updates(updates)
 	if result.Error != nil {
 		return customerrors.WrapDatabaseError(result.Error, customerrors.ErrCodeDatabaseOperationFailed, "failed to update config")
 	}
@@ -94,9 +98,18 @@ func (q *ConfigQueries) Update(id uint, updates map[string]interface{}) error {
 	return nil
 }
 
-// Delete deletes a config by ID.
-func (q *ConfigQueries) Delete(id uint) error {
-	result := q.db.Delete(&models.EVMConfig{}, id)
+// Delete deletes the current config.
+func (q *ConfigQueries) Delete() error {
+	// Get current config first
+	currentConfig, err := q.GetCurrent()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return customerrors.NewDatabaseError(customerrors.ErrCodeRecordNotFound, "no config found to delete")
+		}
+		return customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to get current config")
+	}
+
+	result := q.db.Delete(&models.EVMConfig{}, currentConfig.ID)
 	if result.Error != nil {
 		return customerrors.WrapDatabaseError(result.Error, customerrors.ErrCodeDatabaseOperationFailed, "failed to delete config")
 	}
@@ -113,48 +126,4 @@ func (q *ConfigQueries) Exists(id uint) (bool, error) {
 		return false, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to check config existence")
 	}
 	return count > 0, nil
-}
-
-// Count returns the total number of configs.
-func (q *ConfigQueries) Count() (int64, error) {
-	var count int64
-	if err := q.db.Model(&models.EVMConfig{}).Count(&count).Error; err != nil {
-		return 0, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count configs")
-	}
-	return count, nil
-}
-
-// Search searches for configs by related endpoint name.
-func (q *ConfigQueries) Search(query string) (*types.Pagination[models.EVMConfig], error) {
-	var items []models.EVMConfig
-	var totalItems int64
-
-	searchPattern := "%" + query + "%"
-
-	// Count total matching items
-	if err := q.db.Model(&models.EVMConfig{}).
-		Joins("LEFT JOIN evm_endpoints ON evm_configs.endpoint_id = evm_endpoints.id").
-		Where("evm_endpoints.name LIKE ?", searchPattern).
-		Count(&totalItems).Error; err != nil {
-		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to count configs")
-	}
-
-	// Retrieve all matching items with preloaded relationships
-	if err := q.db.Preload("Endpoint").
-		Preload("SelectedEVMContract").
-		Preload("SelectedEVMAbi").
-		Joins("LEFT JOIN evm_endpoints ON evm_configs.endpoint_id = evm_endpoints.id").
-		Where("evm_endpoints.name LIKE ?", searchPattern).
-		Order("evm_configs.created_at DESC").
-		Find(&items).Error; err != nil {
-		return nil, customerrors.WrapDatabaseError(err, customerrors.ErrCodeDatabaseOperationFailed, "failed to search configs")
-	}
-
-	return &types.Pagination[models.EVMConfig]{
-		Items:       items,
-		TotalPages:  1,
-		CurrentPage: 1,
-		PageSize:    totalItems,
-		TotalItems:  totalItems,
-	}, nil
 }
